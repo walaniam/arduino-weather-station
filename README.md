@@ -5,7 +5,7 @@
 
 # Sensors
 ## Temperature
-[Grove-Temperature-Sensor](https://www.seeedstudio.com/Grove-Temperature-Sensor.html)
+[Grove-Temperature-Sensor](https://www.seeedstudio.com/Grove-Temperature-Sensor.html)  
 [Library](https://github.com/SeeedDocument/Grove-Temperature_Sensor_V1.2)
 
 ## Barometer
