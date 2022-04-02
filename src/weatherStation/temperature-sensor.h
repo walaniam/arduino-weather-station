@@ -7,6 +7,6 @@
 const int TEMPERATURE_PIN = 0;
 const int THERMISTOR_VALUE = 3975;
 
-float temperature();
+float analogTemperature();
 
 #endif
