@@ -15,3 +15,7 @@
 
 ## Light
 [Light-Sensor](https://wiki.seeedstudio.com/Grove-Light_Sensor/)
+
+# Time Clock
+[Grove-RTC](https://wiki.seeedstudio.com/Grove-RTC/)
+[Library](https://github.com/Seeed-Studio/RTC_DS1307)

@@ -1,8 +1,10 @@
 #include "temperature-sensor.h"
-#include <Dps310.h>
 #include <Wire.h>
+#include <Dps310.h>
+#include "DS1307.h"
 #include "rgb_lcd.h"
 
+DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
 
@@ -10,6 +12,13 @@ void setup() {
   
   Serial.begin(9600);
   while (!Serial);
+
+  // Start clock
+  clock.begin();
+  clock.fillByYMD(2022, 4, 3);
+  clock.fillByHMS(11, 06, 30);
+  clock.fillDayOfWeek(SUN);
+  clock.setTime();//write time to the RTC chip
 
   // start LCD
   lcd.begin(16, 2);
@@ -32,6 +41,8 @@ void setup() {
 }
 
 void loop() {
+
+  String time = getTime();
 
   // Measure pressure and temperature
   uint8_t pressureCount = 20;
@@ -64,6 +75,8 @@ void loop() {
   float avgTemperature = (temperature1 + temperature2) / 2;
 
   // Serial Message
+  Serial.print(time);
+  Serial.print(" : ");
   Serial.print("temp1 = ");
   Serial.print(temperature1);
   Serial.print(", temp2 = ");
@@ -87,4 +100,26 @@ void loop() {
   lcd.print(pressureMessage);
 
   delay(30000);
+}
+
+String getTime() {
+  clock.getTime();
+  String time = "";
+  time.concat(clock.year + 2000);
+  time.concat(padded(clock.month));
+  time.concat(padded(clock.dayOfMonth));
+  time.concat(" ");
+  time.concat(padded(clock.hour));
+  time.concat(padded(clock.minute));
+  time.concat(padded(clock.second));
+  return time;
+}
+
+String padded(int value) {
+  String result = "";
+  if (value < 10) {
+    result.concat("0");
+  }
+  result.concat(String(value));
+  return result;
 }
