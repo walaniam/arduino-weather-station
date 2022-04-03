@@ -3,10 +3,16 @@
 #include <Dps310.h>
 #include "DS1307.h"
 #include "rgb_lcd.h"
+#include <SPI.h>
+#include <SD.h>
+
+const String DATA_FILE = "data20220403.txt";
+#define INTERVAL 10000
 
 DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
+File dataFile;
 
 void setup() {
   
@@ -16,12 +22,35 @@ void setup() {
   // Start clock
   clock.begin();
   clock.fillByYMD(2022, 4, 3);
-  clock.fillByHMS(11, 06, 30);
+  clock.fillByHMS(22, 17, 30);
   clock.fillDayOfWeek(SUN);
   clock.setTime();//write time to the RTC chip
 
   // start LCD
   lcd.begin(16, 2);
+  lcd.setCursor(0, 0);
+
+  // Open file
+  if (!SD.begin(4)) {
+    Serial.println(F("Card initialization failed"));
+    lcd.print("No SD card");
+    while (true);
+  }
+
+//  dataFile = SD.open(DATA_FILE);
+//  if (dataFile) {
+//    Serial.println(F("Reading file..."));
+//    while (dataFile.available()) {
+//      Serial.write(dataFile.read());
+//    }
+//    dataFile.close();
+//    Serial.println(F("Done"));
+//  } else {
+//    Serial.println(F("Cannot open file"));
+//  }
+
+  dataFile = SD.open(DATA_FILE, FILE_WRITE);
+//  logToFile(dataFile.name());
 
   // start Dps310
   pressureSensor.begin(Wire);
@@ -35,8 +64,6 @@ void setup() {
   if (measureStatus != 0) {
     Serial.print("Init FAILED! measureStatus = ");
     Serial.println(measureStatus);
-  } else {
-    Serial.println("Init complete!");
   }
 }
 
@@ -85,9 +112,6 @@ void loop() {
   Serial.println(avgPressure_hPa);
 
   // LCD
-  String pressureMessage = "hPa: ";
-  pressureMessage.concat(String(avgPressure_hPa, 2));
-
   lcd.clear();
   // Temp line
   lcd.setCursor(0, 0);
@@ -97,9 +121,24 @@ void loop() {
   lcd.print(String(avgTemperature, 2));
   // Pressure line
   lcd.setCursor(0, 1);
+  String pressureMessage = "hPa: ";
+  pressureMessage.concat(String(avgPressure_hPa, 2));
   lcd.print(pressureMessage);
 
-  delay(30000);
+  String tempLog = "";
+  tempLog.concat(time);
+  tempLog.concat(",");
+  tempLog.concat(String(avgTemperature, 2));  
+  tempLog.concat(",");
+  tempLog.concat(String(avgPressure_hPa, 2));
+  logToFile(tempLog);
+
+  delay(INTERVAL);
+}
+
+void logToFile(String data) {
+  dataFile.println(data);
+  dataFile.flush();
 }
 
 String getTime() {
