@@ -1,4 +1,4 @@
-#include "temperature-sensor.h"
+#include "AnalogTemperatureSensor.h"
 #include <Wire.h>
 #include <Dps310.h>
 #include "DS1307.h"
@@ -6,9 +6,16 @@
 #include <SPI.h>
 #include <SD.h>
 
-const String DATA_FILE = "data20220403.txt";
 #define INTERVAL 10000
+#define ANALOG_TEMPERATURE_PIN 0
+const String DATA_FILE = "data20220403.txt";
 
+struct TempAndPressure {
+  float temp;
+  float pressure;
+};
+
+AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
@@ -71,34 +78,13 @@ void loop() {
 
   String time = getTime();
 
-  // Measure pressure and temperature
-  uint8_t pressureCount = 20;
-  uint8_t temperatureCount = 20;
-  float pressure[pressureCount];
-  float temperature[temperatureCount];
-  int16_t measureStatus = pressureSensor.getContResults(temperature, temperatureCount, pressure, pressureCount);
-
-  float temperature2 = 0;
-  float avgPressure_hPa = -1;
-  if (measureStatus == 0) {
-    float tempSum = 0;
-    for (int16_t i = 0; i < temperatureCount; i++) {
-      tempSum += temperature[i];
-    }
-    temperature2 = tempSum / temperatureCount;  
-  
-    float pressureSum = 0;
-    for (int16_t i = 0; i < pressureCount; i++) {
-      pressureSum += pressure[i];
-    }
-    avgPressure_hPa = pressureSum / pressureCount / 100;
-  } else {
-    Serial.print("Measure failed: ");
-    Serial.println(measureStatus);
-  }
-
   // Analog temperature
-  float temperature1 = analogTemperature();
+  float temperature1 = analogTemp.measure();
+
+  TempAndPressure tempAndPressure = digitalTempAndPressure();
+  float temperature2 = tempAndPressure.temp;
+  float avgPressure_hPa = tempAndPressure.pressure;
+  
   float avgTemperature = (temperature1 + temperature2) / 2;
 
   // Serial Message
@@ -125,15 +111,45 @@ void loop() {
   pressureMessage.concat(String(avgPressure_hPa, 2));
   lcd.print(pressureMessage);
 
-  String tempLog = "";
-  tempLog.concat(time);
-  tempLog.concat(",");
-  tempLog.concat(String(avgTemperature, 2));  
-  tempLog.concat(",");
-  tempLog.concat(String(avgPressure_hPa, 2));
-  logToFile(tempLog);
+  String csv = "";
+  csv.concat(time);
+  csv.concat(",");
+  csv.concat(String(avgTemperature, 2));  
+  csv.concat(",");
+  csv.concat(String(avgPressure_hPa, 2));
+  logToFile(csv);
 
   delay(INTERVAL);
+}
+
+TempAndPressure digitalTempAndPressure() {
+  
+  uint8_t pressureCount = 20;
+  uint8_t temperatureCount = 20;
+  float pressure[pressureCount];
+  float temperature[temperatureCount];
+  int16_t measureStatus = pressureSensor.getContResults(temperature, temperatureCount, pressure, pressureCount);
+
+  float temp = 0;
+  float avgPressure_hPa = -1;
+  if (measureStatus == 0) {
+    float tempSum = 0;
+    for (int16_t i = 0; i < temperatureCount; i++) {
+      tempSum += temperature[i];
+    }
+    temp = tempSum / temperatureCount;  
+  
+    float pressureSum = 0;
+    for (int16_t i = 0; i < pressureCount; i++) {
+      pressureSum += pressure[i];
+    }
+    avgPressure_hPa = pressureSum / pressureCount / 100;
+  } else {
+    Serial.print("Measure failed: ");
+    Serial.println(measureStatus);
+  }
+
+  return (TempAndPressure){temp, avgPressure_hPa};
 }
 
 void logToFile(String data) {
