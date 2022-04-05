@@ -5,7 +5,7 @@
 #include <math.h>
 
 class AnalogTemperatureSensor {
-public:
+  public:
     int sensorPin;
     AnalogTemperatureSensor(int pin);
     float measure();

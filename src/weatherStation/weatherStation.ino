@@ -8,7 +8,7 @@
 
 #define INTERVAL 10000
 #define ANALOG_TEMPERATURE_PIN 0
-const String DATA_FILE = "data20220403.txt";
+const String DATA_FILE = "data2022040502.txt";
 
 struct TempAndPressure {
   float temp;
@@ -22,14 +22,14 @@ Dps310 pressureSensor = Dps310();
 File dataFile;
 
 void setup() {
-  
+
   Serial.begin(9600);
   while (!Serial);
 
   // Start clock
   clock.begin();
-  clock.fillByYMD(2022, 4, 3);
-  clock.fillByHMS(22, 17, 30);
+  clock.fillByYMD(2022, 4, 5);
+  clock.fillByHMS(10, 50, 30);
   clock.fillDayOfWeek(SUN);
   clock.setTime();//write time to the RTC chip
 
@@ -44,30 +44,33 @@ void setup() {
     while (true);
   }
 
-//  dataFile = SD.open(DATA_FILE);
-//  if (dataFile) {
-//    Serial.println(F("Reading file..."));
-//    while (dataFile.available()) {
-//      Serial.write(dataFile.read());
-//    }
-//    dataFile.close();
-//    Serial.println(F("Done"));
-//  } else {
-//    Serial.println(F("Cannot open file"));
-//  }
+  dataFile = SD.open(DATA_FILE);
+  if (dataFile) {
+    Serial.println(F("Reading file..."));
+    while (dataFile.available()) {
+      Serial.write(dataFile.read());
+    }
+    dataFile.close();
+    Serial.println(F("Done"));
+  } else {
+    Serial.println(F("Cannot open file"));
+  }
 
   dataFile = SD.open(DATA_FILE, FILE_WRITE);
+  Serial.print(DATA_FILE);
+  Serial.print(" size (bytes) = ");
+  Serial.println(dataFile.size());
 //  logToFile(dataFile.name());
 
   // start Dps310
   pressureSensor.begin(Wire);
-  
+
   int16_t temp_mr = 2;
   int16_t temp_osr = 2;
   int16_t prs_mr = 2;
   int16_t prs_osr = 2;
   int16_t measureStatus = pressureSensor.startMeasureBothCont(temp_mr, temp_osr, prs_mr, prs_osr);
-  
+
   if (measureStatus != 0) {
     Serial.print("Init FAILED! measureStatus = ");
     Serial.println(measureStatus);
@@ -84,7 +87,7 @@ void loop() {
   TempAndPressure tempAndPressure = digitalTempAndPressure();
   float temperature2 = tempAndPressure.temp;
   float avgPressure_hPa = tempAndPressure.pressure;
-  
+
   float avgTemperature = (temperature1 + temperature2) / 2;
 
   // Serial Message
@@ -114,7 +117,7 @@ void loop() {
   String csv = "";
   csv.concat(time);
   csv.concat(",");
-  csv.concat(String(avgTemperature, 2));  
+  csv.concat(String(avgTemperature, 2));
   csv.concat(",");
   csv.concat(String(avgPressure_hPa, 2));
   logToFile(csv);
@@ -123,7 +126,7 @@ void loop() {
 }
 
 TempAndPressure digitalTempAndPressure() {
-  
+
   uint8_t pressureCount = 20;
   uint8_t temperatureCount = 20;
   float pressure[pressureCount];
@@ -137,8 +140,8 @@ TempAndPressure digitalTempAndPressure() {
     for (int16_t i = 0; i < temperatureCount; i++) {
       tempSum += temperature[i];
     }
-    temp = tempSum / temperatureCount;  
-  
+    temp = tempSum / temperatureCount;
+
     float pressureSum = 0;
     for (int16_t i = 0; i < pressureCount; i++) {
       pressureSum += pressure[i];
@@ -149,7 +152,9 @@ TempAndPressure digitalTempAndPressure() {
     Serial.println(measureStatus);
   }
 
-  return (TempAndPressure){temp, avgPressure_hPa};
+  return (TempAndPressure) {
+    temp, avgPressure_hPa
+  };
 }
 
 void logToFile(String data) {
