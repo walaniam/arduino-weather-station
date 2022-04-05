@@ -1,6 +1,6 @@
 #include "AnalogTemperatureSensor.h"
 
-const int THERMISTOR_VALUE = 3975;
+#define THERMISTOR_VALUE 3975
 
 AnalogTemperatureSensor::AnalogTemperatureSensor(int pin) {
   sensorPin = pin;
