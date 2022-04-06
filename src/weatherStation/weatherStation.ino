@@ -1,4 +1,5 @@
 //#define DEBUG
+//#define SET_TIME
 #include "AnalogTemperatureSensor.h"
 #include <Wire.h>
 #include <Dps310.h>
@@ -9,7 +10,7 @@
 
 #define INTERVAL 10000
 #define ANALOG_TEMPERATURE_PIN 0
-#define DATA_FILE (String) "data02.txt"
+#define DATA_FILE (String) "data03.txt"
 
 struct TempAndPressure {
   float temp;
@@ -34,10 +35,13 @@ void setup() {
 
   // Start clock
   clock.begin();
-  clock.fillByYMD(2022, 4, 5);
-  clock.fillByHMS(14, 15, 01);
-  clock.fillDayOfWeek(TUE);
-  clock.setTime();//write time to the RTC chip
+
+#ifdef SET_TIME
+  clock.fillByYMD(2022, 4, 6);
+  clock.fillByHMS(13, 44, 00);
+  clock.fillDayOfWeek(WED);
+  clock.setTime();
+#endif
 
   // start LCD
   lcd.begin(16, 2);
