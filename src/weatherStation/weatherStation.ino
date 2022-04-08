@@ -10,7 +10,7 @@
 
 #define INTERVAL 10000
 #define ANALOG_TEMPERATURE_PIN 0
-#define DATA_FILE (String) "data03.txt"
+#define DATA_FILE (String) "data05.txt"
 
 struct TempAndPressure {
   float temp;
@@ -101,8 +101,6 @@ void loop() {
   float temperature2 = tempAndPressure.temp;
   float avgPressure_hPa = tempAndPressure.pressure;
 
-  float avgTemperature = (temperature1 + temperature2) / 2;
-
   // Serial Message
   Serial.print(time);
   Serial.print(F(" : "));
@@ -119,8 +117,10 @@ void loop() {
   lcd.setCursor(0, 0);
   lcd.print(F("C"));
   lcd.print((char)223);
-  lcd.print(F(" :  "));
-  lcd.print(String(avgTemperature, 2));
+  lcd.print(F(":"));
+  lcd.print(String(temperature1, 2));
+  lcd.print(F(" / "));
+  lcd.print(String(temperature2, 2));  
   // Pressure line
   lcd.setCursor(0, 1);
   String pressureMessage = "hPa: ";
@@ -130,7 +130,9 @@ void loop() {
   String csv = "";
   csv.concat(time);
   csv.concat(F(","));
-  csv.concat(String(avgTemperature, 2));
+  csv.concat(String(temperature1, 2));
+  csv.concat(F(","));
+  csv.concat(String(temperature2, 2));
   csv.concat(F(","));
   csv.concat(String(avgPressure_hPa, 2));
   logToFile(csv);
