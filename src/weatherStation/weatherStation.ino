@@ -1,15 +1,20 @@
 //#define DEBUG
 //#define SET_TIME
+//#define USE_SD
 #include "AnalogTemperatureSensor.h"
-#include <Wire.h>
 #include <Dps310.h>
 #include "DS1307.h"
 #include "rgb_lcd.h"
+#include "WiFiEsp.h"
+#include <SoftwareSerial.h>
+#include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
+#include "secrets.h"
 
 #define INTERVAL 10000
 #define ANALOG_TEMPERATURE_PIN 0
+#define BUTTON_PIN 4
 #define DATA_FILE (String) "data05.txt"
 
 struct TempAndPressure {
@@ -17,16 +22,58 @@ struct TempAndPressure {
   float pressure;
 };
 
+unsigned long lastLoopTime;
+bool buttonState = true;
+
 AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
+
+#ifdef USE_SD
 File dataFile;
+#endif
+
+SoftwareSerial Serial1(2, 3); // RX, TX
+
+char ssid[] = SECRET_SSID;
+char pass[] = SECRET_PASS;
+int status = WL_IDLE_STATUS;
+char server[] = "arduino.cc";
+// Initialize the Ethernet client object
+WiFiEspClient client;
 
 void setup() {
 
   Serial.begin(9600);
   while (!Serial);
+
+  pinMode(BUTTON_PIN, INPUT);
+
+  Serial.println(F("Initializing Serial1"));
+  Serial1.begin(115200);
+  while (!Serial1);
+  Serial.println(F("Initialized Serial1"));
+
+  WiFi.init(&Serial1);
+
+  // check for the presence of the shield
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println(F("WiFi shield not present"));
+    while (true);
+  }
+
+  // attempt to connect to WiFi network
+  while (status != WL_CONNECTED) {
+    Serial.print(F("Attempting to connect to WPA SSID: "));
+    Serial.println(ssid);
+    // Connect to WPA/WPA2 network
+    status = WiFi.begin(ssid, pass);
+  }
+
+  // you're connected now, so print out the data
+  Serial.println(F("You're connected to the network"));
+
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -37,8 +84,8 @@ void setup() {
   clock.begin();
 
 #ifdef SET_TIME
-  clock.fillByYMD(2022, 4, 6);
-  clock.fillByHMS(13, 44, 00);
+  clock.fillByYMD(2022, 4, 20);
+  clock.fillByHMS(13, 38, 00);
   clock.fillDayOfWeek(WED);
   clock.setTime();
 #endif
@@ -48,6 +95,7 @@ void setup() {
   lcd.setCursor(0, 0);
 
   // Open file
+#ifdef USE_SD
   if (!SD.begin(4)) {
     Serial.println(F("Card initialization failed"));
     lcd.print(F("No SD card"));
@@ -69,6 +117,7 @@ void setup() {
 #endif
 
   dataFile = SD.open(DATA_FILE, FILE_WRITE);
+#endif
 
   // start Dps310
   pressureSensor.begin(Wire);
@@ -91,6 +140,26 @@ void setup() {
 }
 
 void loop() {
+
+  if (digitalRead(BUTTON_PIN) == HIGH) {
+    buttonState = !buttonState;
+    if (buttonState) {
+      lcd.display();
+    } else {
+      lcd.noDisplay();
+    }
+    delay(300);
+  }
+
+  unsigned long now = millis();
+  if (now - lastLoopTime < INTERVAL) {
+    return;
+  }
+  lastLoopTime = now;
+
+  cmd_send(F("AT+CWLAP"));
+  delay(1000);
+  cmd_read();
 
   String time = getTime();
 
@@ -120,7 +189,7 @@ void loop() {
   lcd.print(F(":"));
   lcd.print(String(temperature1, 2));
   lcd.print(F(" / "));
-  lcd.print(String(temperature2, 2));  
+  lcd.print(String(temperature2, 2));
   // Pressure line
   lcd.setCursor(0, 1);
   String pressureMessage = "hPa: ";
@@ -136,8 +205,6 @@ void loop() {
   csv.concat(F(","));
   csv.concat(String(avgPressure_hPa, 2));
   logToFile(csv);
-
-  delay(INTERVAL);
 }
 
 TempAndPressure digitalTempAndPressure() {
@@ -173,8 +240,10 @@ TempAndPressure digitalTempAndPressure() {
 }
 
 void logToFile(String data) {
+#ifdef USE_SD
   dataFile.println(data);
   dataFile.flush();
+#endif
 }
 
 String getTime() {
@@ -203,4 +272,17 @@ int freeRam() {
   extern int __heap_start, *__brkval;
   int v;
   return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);
+}
+
+void cmd_send(String cmd) {
+  Serial.print("cmd: ");
+  Serial.println(cmd);
+  Serial1.println(cmd);
+}
+
+void cmd_read() {
+  while (Serial1.available()) {
+    Serial.write(Serial1.read());
+  }
+  Serial.println();
 }
