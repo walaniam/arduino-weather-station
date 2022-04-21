@@ -9,13 +9,11 @@
 #include <SoftwareSerial.h>
 #include <Wire.h>
 #include <SPI.h>
+#ifdef USE_SD
 #include <SD.h>
+#endif
+#include "constants.h"
 #include "secrets.h"
-
-#define INTERVAL 10000
-#define ANALOG_TEMPERATURE_PIN 0
-#define BUTTON_PIN 4
-#define DATA_FILE (String) "data05.txt"
 
 struct TempAndPressure {
   float temp;
@@ -23,8 +21,8 @@ struct TempAndPressure {
 };
 
 unsigned long lastLoopTime;
+unsigned long buttonPressTime;
 bool buttonState = true;
-
 AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
 rgb_lcd lcd;
@@ -34,55 +32,20 @@ Dps310 pressureSensor = Dps310();
 File dataFile;
 #endif
 
-SoftwareSerial Serial1(2, 3); // RX, TX
-
-char ssid[] = SECRET_SSID;
-char pass[] = SECRET_PASS;
+SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
 int status = WL_IDLE_STATUS;
-char server[] = "arduino.cc";
-// Initialize the Ethernet client object
-WiFiEspClient client;
+WiFiEspClient wifiClient;
 
 void setup() {
 
   Serial.begin(9600);
   while (!Serial);
 
+  // Button
   pinMode(BUTTON_PIN, INPUT);
 
-  Serial.println(F("Initializing Serial1"));
-  Serial1.begin(115200);
-  while (!Serial1);
-  Serial.println(F("Initialized Serial1"));
-
-  WiFi.init(&Serial1);
-
-  // check for the presence of the shield
-  if (WiFi.status() == WL_NO_SHIELD) {
-    Serial.println(F("WiFi shield not present"));
-    while (true);
-  }
-
-  // attempt to connect to WiFi network
-  while (status != WL_CONNECTED) {
-    Serial.print(F("Attempting to connect to WPA SSID: "));
-    Serial.println(ssid);
-    // Connect to WPA/WPA2 network
-    status = WiFi.begin(ssid, pass);
-  }
-
-  // you're connected now, so print out the data
-  Serial.println(F("You're connected to the network"));
-
-
-#ifdef DEBUG
-  Serial.print(F("SRAM = "));
-  Serial.println(freeRam());
-#endif
-
-  // Start clock
+  // Clock
   clock.begin();
-
 #ifdef SET_TIME
   clock.fillByYMD(2022, 4, 20);
   clock.fillByHMS(13, 38, 00);
@@ -90,9 +53,41 @@ void setup() {
   clock.setTime();
 #endif
 
-  // start LCD
+  // LCD
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
+
+  // Serial1
+  Serial.println(F("Initializing Serial1"));
+  Serial1.begin(115200);
+  while (!Serial1);
+  Serial.println(F("Initialized Serial1"));
+
+  // WiFi
+  WiFi.init(&Serial1);
+
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println(F("WiFi shield not present"));
+    while (true);
+  }
+
+  while (status != WL_CONNECTED) {
+    Serial.print(F("Attempting to connect to WPA SSID: "));
+    Serial.println(SECRET_SSID);
+    status = WiFi.begin(SECRET_SSID, SECRET_PASS);
+  }
+
+  Serial.print(F("Connected to the network: "));
+  Serial.println(SECRET_SSID);
+  Serial.println(WiFi.localIP());
+  Serial.println(WiFi.gatewayIP());
+  Serial.println(WiFi.subnetMask());
+  
+
+#ifdef DEBUG
+  Serial.print(F("SRAM = "));
+  Serial.println(freeRam());
+#endif
 
   // Open file
 #ifdef USE_SD
@@ -141,25 +136,22 @@ void setup() {
 
 void loop() {
 
-  if (digitalRead(BUTTON_PIN) == HIGH) {
+  unsigned long now = millis();
+
+  if (buttonPressTime > 0 && now - 1000 > buttonPressTime && digitalRead(BUTTON_PIN) == HIGH) {
     buttonState = !buttonState;
     if (buttonState) {
       lcd.display();
     } else {
       lcd.noDisplay();
     }
-    delay(300);
   }
 
-  unsigned long now = millis();
   if (now - lastLoopTime < INTERVAL) {
     return;
   }
-  lastLoopTime = now;
 
-  cmd_send(F("AT+CWLAP"));
-  delay(1000);
-  cmd_read();
+  lastLoopTime = now;
 
   String time = getTime();
 
@@ -240,6 +232,31 @@ TempAndPressure digitalTempAndPressure() {
 }
 
 void logToFile(String data) {
+
+  // test wifi
+  //  cmd_send(F("AT+CWLAP"));
+  //  delay(1000);
+  //  cmd_read();
+
+  wifiClient.stop();
+
+  char server[] = "192.168.0.192";
+  if (wifiClient.connect(server, 7070)) {
+    Serial.println(F("Connected to server"));
+    // Make a HTTP request
+    wifiClient.println(F("GET /swagger-ui/index.html HTTP/1.1"));
+    wifiClient.println(F("Host: 192.168.0.192"));
+    wifiClient.println(F("Connection: close"));
+    wifiClient.println();
+    Serial.println(F("Request sent"));
+  }
+
+  while (wifiClient.available()) {
+    char c = wifiClient.read();
+    Serial.write(c);
+  }
+  Serial.println();
+
 #ifdef USE_SD
   dataFile.println(data);
   dataFile.flush();

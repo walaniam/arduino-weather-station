@@ -75,18 +75,15 @@ void EspDrv::wifiDriverInit(Stream *espSerial)
 
 	bool initOK = false;
 	
-	for(int i=0; i<5; i++)
-	{
-		if (sendCmd(F("AT")) == TAG_OK)
-		{
+	for(int i=0; i<5; i++) {
+		if (sendCmd(F("AT")) == TAG_OK) {
 			initOK=true;
 			break;
 		}
 		delay(1000);
 	}
 
-	if (!initOK)
-	{
+	if (!initOK) {
 		LOGERROR(F("Cannot initialize ESP module"));
 		delay(5000);
 		return;
@@ -96,16 +93,13 @@ void EspDrv::wifiDriverInit(Stream *espSerial)
 
 	// check firmware version
 	getFwVersion();
+	delay(1000);
 
 	// prints a warning message if the firmware is not 1.X or 2.X
-	if ((fwVersion[0] != '1' and fwVersion[0] != '2') or
-		fwVersion[1] != '.')
-	{
+	if ((fwVersion[0] != '1' and fwVersion[0] != '2') or fwVersion[1] != '.') {
 		LOGWARN1(F("Warning: Unsupported firmware"), fwVersion);
 		delay(4000);
-	}
-	else
-	{
+	} else {
 		LOGINFO1(F("Initilization successful -"), fwVersion);
 	}
 }
