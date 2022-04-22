@@ -32,9 +32,13 @@ Dps310 pressureSensor = Dps310();
 File dataFile;
 #endif
 
+IPAddress ip(192, 168, 0, 128);
 SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
 int status = WL_IDLE_STATUS;
 WiFiEspClient wifiClient;
+//WiFiEspServer server(80);
+//RingBuffer buf(8);
+//int reqCount = 0;
 
 void setup() {
 
@@ -71,10 +75,13 @@ void setup() {
     while (true);
   }
 
+  WiFi.config(ip);
+
   while (status != WL_CONNECTED) {
     Serial.print(F("Attempting to connect to WPA SSID: "));
     Serial.println(SECRET_SSID);
     status = WiFi.begin(SECRET_SSID, SECRET_PASS);
+    delay(5000);
   }
 
   Serial.print(F("Connected to the network: "));
@@ -82,7 +89,7 @@ void setup() {
   Serial.println(WiFi.localIP());
   Serial.println(WiFi.gatewayIP());
   Serial.println(WiFi.subnetMask());
-  
+
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -128,6 +135,8 @@ void setup() {
     Serial.println(measureStatus);
   }
 
+//  server.begin();
+
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
   Serial.println(freeRam());
@@ -137,6 +146,8 @@ void setup() {
 void loop() {
 
   unsigned long now = millis();
+
+//  handleHttpRequest();
 
   if (buttonPressTime > 0 && now - 1000 > buttonPressTime && digitalRead(BUTTON_PIN) == HIGH) {
     buttonState = !buttonState;
@@ -234,28 +245,29 @@ TempAndPressure digitalTempAndPressure() {
 void logToFile(String data) {
 
   // test wifi
-  //  cmd_send(F("AT+CWLAP"));
-  //  delay(1000);
-  //  cmd_read();
+//    cmd_send(F("AT+CWLAP"));
+    cmd_send(F("AT+GMR"));
+//    delay(1000);
+    cmd_read();
 
-  wifiClient.stop();
-
-  char server[] = "192.168.0.192";
-  if (wifiClient.connect(server, 7070)) {
-    Serial.println(F("Connected to server"));
-    // Make a HTTP request
-    wifiClient.println(F("GET /swagger-ui/index.html HTTP/1.1"));
-    wifiClient.println(F("Host: 192.168.0.192"));
-    wifiClient.println(F("Connection: close"));
-    wifiClient.println();
-    Serial.println(F("Request sent"));
-  }
-
-  while (wifiClient.available()) {
-    char c = wifiClient.read();
-    Serial.write(c);
-  }
-  Serial.println();
+//    wifiClient.stop();
+//  
+//    char server[] = "192.168.0.1";
+//    if (wifiClient.connect(server, 80)) {
+//      Serial.println(F("Connected to server"));
+//      // Make a HTTP request
+//      wifiClient.println(F("GET /common_page/login.html HTTP/1.1"));
+//      wifiClient.println(F("Host: 192.168.0.1"));
+//      wifiClient.println(F("Connection: close"));
+//      wifiClient.println();
+//      Serial.println(F("Request sent"));
+//    }
+//  
+//    while (wifiClient.available()) {
+//      char c = wifiClient.read();
+//      Serial.write(c);
+//    }
+//    Serial.println();
 
 #ifdef USE_SD
   dataFile.println(data);
@@ -303,3 +315,45 @@ void cmd_read() {
   }
   Serial.println();
 }
+
+//void handleHttpRequest() {
+//  
+//  WiFiEspClient client = server.available();  // listen for incoming clients
+//
+//  if (client) {
+//    Serial.println(F("New client"));
+//    buf.init();
+//    while (client.connected()) {
+//      if (client.available()) {
+//        char c = client.read();
+////        Serial.print(c);
+//        buf.push(c);
+//        // you got two newline characters in a row
+//        // that's the end of the HTTP request, so send a response
+//        if (buf.endsWith("\r\n\r\n")) {
+//          Serial.println();
+//          sendHttpResponse(client);
+//          break;
+//        }
+//      }
+//    }
+//
+//    // give the web browser time to receive the data
+//    delay(10);
+//
+//    // close the connection
+//    client.stop();
+//    Serial.println(F("Client disconnected"));
+//  }
+//}
+//
+//void sendHttpResponse(WiFiEspClient client) {
+//  Serial.println(F("Sending response..."));
+//  client.print(F(
+//    "HTTP/1.1 200 OK\r\n"
+//    "Content-Type: text/plain\r\n"
+//    "Connection: close\r\n"  // the connection will be closed after completion of the response
+//    "\r\n"));
+//  client.print(F("Hello\r\n"));
+//  client.flush();
+//}
