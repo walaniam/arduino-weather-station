@@ -1,53 +1,62 @@
 //#define DEBUG
 //#define SET_TIME
+#define USE_SD
 #include "AnalogTemperatureSensor.h"
-#include <Wire.h>
 #include <Dps310.h>
 #include "DS1307.h"
 #include "rgb_lcd.h"
+#include <Wire.h>
 #include <SPI.h>
+#ifdef USE_SD
 #include <SD.h>
-
-#define INTERVAL 10000
-#define ANALOG_TEMPERATURE_PIN 0
-#define DATA_FILE (String) "data05.txt"
+#endif
+#include "constants.h"
+//#include "secrets.h"
 
 struct TempAndPressure {
   float temp;
   float pressure;
 };
 
+unsigned long lastLoopTime;
+bool buttonState = true;
 AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
+
+#ifdef USE_SD
 File dataFile;
+#endif
 
 void setup() {
 
   Serial.begin(9600);
   while (!Serial);
 
+  // Button
+  pinMode(BUTTON_PIN, INPUT);
+
+  // Clock
+  clock.begin();
+#ifdef SET_TIME
+  clock.fillByYMD(2022, 4, 20);
+  clock.fillByHMS(13, 38, 00);
+  clock.fillDayOfWeek(WED);
+  clock.setTime();
+#endif
+
+  // LCD
+  lcd.begin(16, 2);
+  lcd.setCursor(0, 0);
+
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
   Serial.println(freeRam());
 #endif
 
-  // Start clock
-  clock.begin();
-
-#ifdef SET_TIME
-  clock.fillByYMD(2022, 4, 6);
-  clock.fillByHMS(13, 44, 00);
-  clock.fillDayOfWeek(WED);
-  clock.setTime();
-#endif
-
-  // start LCD
-  lcd.begin(16, 2);
-  lcd.setCursor(0, 0);
-
   // Open file
+#ifdef USE_SD
   if (!SD.begin(4)) {
     Serial.println(F("Card initialization failed"));
     lcd.print(F("No SD card"));
@@ -69,6 +78,7 @@ void setup() {
 #endif
 
   dataFile = SD.open(DATA_FILE, FILE_WRITE);
+#endif
 
   // start Dps310
   pressureSensor.begin(Wire);
@@ -91,6 +101,24 @@ void setup() {
 }
 
 void loop() {
+
+  unsigned long now = millis();
+
+  if (digitalRead(BUTTON_PIN) == HIGH) {
+    buttonState = !buttonState;
+    if (buttonState) {
+      lcd.display();
+    } else {
+      lcd.noDisplay();
+    }
+    delay(1000);
+  }
+
+  if (now - lastLoopTime < INTERVAL) {
+    return;
+  }
+
+  lastLoopTime = now;
 
   String time = getTime();
 
@@ -120,7 +148,7 @@ void loop() {
   lcd.print(F(":"));
   lcd.print(String(temperature1, 2));
   lcd.print(F(" / "));
-  lcd.print(String(temperature2, 2));  
+  lcd.print(String(temperature2, 2));
   // Pressure line
   lcd.setCursor(0, 1);
   String pressureMessage = "hPa: ";
@@ -136,8 +164,6 @@ void loop() {
   csv.concat(F(","));
   csv.concat(String(avgPressure_hPa, 2));
   logToFile(csv);
-
-  delay(INTERVAL);
 }
 
 TempAndPressure digitalTempAndPressure() {
@@ -173,8 +199,10 @@ TempAndPressure digitalTempAndPressure() {
 }
 
 void logToFile(String data) {
+#ifdef USE_SD
   dataFile.println(data);
   dataFile.flush();
+#endif
 }
 
 String getTime() {
