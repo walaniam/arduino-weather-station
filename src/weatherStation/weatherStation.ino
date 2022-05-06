@@ -1,6 +1,6 @@
 //#define DEBUG
 //#define SET_TIME
-#define USE_SD
+//#define USE_SD
 #include "AnalogTemperatureSensor.h"
 #include <Dps310.h>
 #include "DS1307.h"
@@ -35,7 +35,7 @@ IPAddress ip(192, 168, 0, 128);
 SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
 int status = WL_IDLE_STATUS;
 WiFiEspClient wifiClient;
-//WiFiEspServer server(80);
+//WiFiEspServer server(8 0);
 //RingBuffer buf(8);
 //int reqCount = 0;
 
@@ -241,7 +241,6 @@ TempAndPressure digitalTempAndPressure() {
 }
 
 void logToFile(String data) {
-#ifdef USE_SD
 
   // test wifi
 //    cmd_send(F("AT+CWLAP"));
@@ -249,24 +248,24 @@ void logToFile(String data) {
 //    delay(1000);
     cmd_read();
 
-//    wifiClient.stop();
-//
-//    char server[] = "192.168.0.1";
-//    if (wifiClient.connect(server, 80)) {
-//      Serial.println(F("Connected to server"));
-//      // Make a HTTP request
-//      wifiClient.println(F("GET /common_page/login.html HTTP/1.1"));
-//      wifiClient.println(F("Host: 192.168.0.1"));
-//      wifiClient.println(F("Connection: close"));
-//      wifiClient.println();
-//      Serial.println(F("Request sent"));
-//    }
-//
-//    while (wifiClient.available()) {
-//      char c = wifiClient.read();
-//      Serial.write(c);
-//    }
-//    Serial.println();
+    wifiClient.stop();
+
+    char server[] = "192.168.0.1";
+    if (wifiClient.connect(server, 80)) {
+      Serial.println(F("Connected to server"));
+      // Make a HTTP request
+      wifiClient.println(F("GET /common_page/login.html HTTP/1.1"));
+      wifiClient.println(F("Host: 192.168.0.1"));
+      wifiClient.println(F("Connection: close"));
+      wifiClient.println();
+      Serial.println(F("Request sent"));
+    }
+
+    while (wifiClient.available()) {
+      char c = wifiClient.read();
+      Serial.write(c);
+    }
+    Serial.println();
 
 #ifdef USE_SD
   dataFile.println(data);
@@ -303,7 +302,7 @@ int freeRam() {
 }
 
 void cmd_send(String cmd) {
-  Serial.print("cmd: ");
+  Serial.print(F("cmd: "));
   Serial.println(cmd);
   Serial1.println(cmd);
 }
