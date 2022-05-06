@@ -1,6 +1,6 @@
 //#define DEBUG
 //#define SET_TIME
-//#define USE_SD
+#define USE_SD
 #include "AnalogTemperatureSensor.h"
 #include <Dps310.h>
 #include "DS1307.h"
@@ -21,7 +21,6 @@ struct TempAndPressure {
 };
 
 unsigned long lastLoopTime;
-unsigned long buttonPressTime;
 bool buttonState = true;
 AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
@@ -147,15 +146,14 @@ void loop() {
 
   unsigned long now = millis();
 
-//  handleHttpRequest();
-
-  if (buttonPressTime > 0 && now - 1000 > buttonPressTime && digitalRead(BUTTON_PIN) == HIGH) {
+  if (digitalRead(BUTTON_PIN) == HIGH) {
     buttonState = !buttonState;
     if (buttonState) {
       lcd.display();
     } else {
       lcd.noDisplay();
     }
+    delay(1000);
   }
 
   if (now - lastLoopTime < INTERVAL) {
@@ -243,6 +241,7 @@ TempAndPressure digitalTempAndPressure() {
 }
 
 void logToFile(String data) {
+#ifdef USE_SD
 
   // test wifi
 //    cmd_send(F("AT+CWLAP"));
@@ -251,7 +250,7 @@ void logToFile(String data) {
     cmd_read();
 
 //    wifiClient.stop();
-//  
+//
 //    char server[] = "192.168.0.1";
 //    if (wifiClient.connect(server, 80)) {
 //      Serial.println(F("Connected to server"));
@@ -262,7 +261,7 @@ void logToFile(String data) {
 //      wifiClient.println();
 //      Serial.println(F("Request sent"));
 //    }
-//  
+//
 //    while (wifiClient.available()) {
 //      char c = wifiClient.read();
 //      Serial.write(c);
@@ -317,7 +316,7 @@ void cmd_read() {
 }
 
 //void handleHttpRequest() {
-//  
+//
 //  WiFiEspClient client = server.available();  // listen for incoming clients
 //
 //  if (client) {
