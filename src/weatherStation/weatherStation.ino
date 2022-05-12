@@ -1,17 +1,15 @@
 //#define DEBUG
 //#define SET_TIME
 //#define USE_SD
+#include <SoftwareSerial.h>
+#ifdef USE_SD
+#include <SD.h>
+#endif
+
 #include "AnalogTemperatureSensor.h"
 #include <Dps310.h>
 #include "DS1307.h"
 #include "rgb_lcd.h"
-#include "WiFiEsp.h"
-#include <SoftwareSerial.h>
-#include <Wire.h>
-#include <SPI.h>
-#ifdef USE_SD
-#include <SD.h>
-#endif
 #include "constants.h"
 #include "secrets.h"
 
@@ -23,7 +21,7 @@ struct TempAndPressure {
 unsigned long lastLoopTime;
 bool buttonState = true;
 AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
-DS1307 clock;
+DS1307 ds1307Clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
 
@@ -31,29 +29,25 @@ Dps310 pressureSensor = Dps310();
 File dataFile;
 #endif
 
-IPAddress ip(192, 168, 0, 128);
-SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
-int status = WL_IDLE_STATUS;
-WiFiEspClient wifiClient;
-//WiFiEspServer server(8 0);
-//RingBuffer buf(8);
-//int reqCount = 0;
+//IPAddress ip(192, 168, 0, 128);
+SoftwareSerial esp8266(WIFI_RX, WIFI_TX);
+
 
 void setup() {
 
-  Serial.begin(9600);
+  Serial.begin(SERIAL_SPEED);
   while (!Serial);
 
   // Button
   pinMode(BUTTON_PIN, INPUT);
 
   // Clock
-  clock.begin();
+  ds1307Clock.begin();
 #ifdef SET_TIME
-  clock.fillByYMD(2022, 4, 20);
-  clock.fillByHMS(13, 38, 00);
-  clock.fillDayOfWeek(WED);
-  clock.setTime();
+  ds1307Clock.fillByYMD(2022, 4, 20);
+  ds1307Clock.fillByHMS(13, 38, 00);
+  ds1307Clock.fillDayOfWeek(WED);
+  ds1307Clock.setTime();
 #endif
 
   // LCD
@@ -62,33 +56,12 @@ void setup() {
 
   // Serial1
   Serial.println(F("Initializing Serial1"));
-  Serial1.begin(115200);
-  while (!Serial1);
+  esp8266.begin(SERIAL_SPEED);
+  while (!esp8266);
   Serial.println(F("Initialized Serial1"));
 
   // WiFi
-  WiFi.init(&Serial1);
-
-  if (WiFi.status() == WL_NO_SHIELD) {
-    Serial.println(F("WiFi shield not present"));
-    while (true);
-  }
-
-  WiFi.config(ip);
-
-  while (status != WL_CONNECTED) {
-    Serial.print(F("Attempting to connect to WPA SSID: "));
-    Serial.println(SECRET_SSID);
-    status = WiFi.begin(SECRET_SSID, SECRET_PASS);
-    delay(5000);
-  }
-
-  Serial.print(F("Connected to the network: "));
-  Serial.println(SECRET_SSID);
-  Serial.println(WiFi.localIP());
-  Serial.println(WiFi.gatewayIP());
-  Serial.println(WiFi.subnetMask());
-
+  InitWifiModule();
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -134,13 +107,12 @@ void setup() {
     Serial.println(measureStatus);
   }
 
-//  server.begin();
-
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
   Serial.println(freeRam());
 #endif
 }
+
 
 void loop() {
 
@@ -205,9 +177,12 @@ void loop() {
   csv.concat(String(temperature2, 2));
   csv.concat(F(","));
   csv.concat(String(avgPressure_hPa, 2));
-  logToFile(csv);
+  logData(csv);
 }
 
+/**
+   Measure temperature and pressure.
+*/
 TempAndPressure digitalTempAndPressure() {
 
   uint8_t pressureCount = 20;
@@ -240,32 +215,9 @@ TempAndPressure digitalTempAndPressure() {
   };
 }
 
-void logToFile(String data) {
+void logData(String data) {
 
-  // test wifi
-//    cmd_send(F("AT+CWLAP"));
-    cmd_send(F("AT+GMR"));
-//    delay(1000);
-    cmd_read();
-
-    wifiClient.stop();
-
-    char server[] = "192.168.0.1";
-    if (wifiClient.connect(server, 80)) {
-      Serial.println(F("Connected to server"));
-      // Make a HTTP request
-      wifiClient.println(F("GET /common_page/login.html HTTP/1.1"));
-      wifiClient.println(F("Host: 192.168.0.1"));
-      wifiClient.println(F("Connection: close"));
-      wifiClient.println();
-      Serial.println(F("Request sent"));
-    }
-
-    while (wifiClient.available()) {
-      char c = wifiClient.read();
-      Serial.write(c);
-    }
-    Serial.println();
+  SendPostRequest(data);
 
 #ifdef USE_SD
   dataFile.println(data);
@@ -273,19 +225,25 @@ void logToFile(String data) {
 #endif
 }
 
+/**
+   Get formatter date-time.
+*/
 String getTime() {
-  clock.getTime();
+  ds1307Clock.getTime();
   String time = "";
-  time.concat(clock.year + 2000);
-  time.concat(padded(clock.month));
-  time.concat(padded(clock.dayOfMonth));
+  time.concat(ds1307Clock.year + 2000);
+  time.concat(padded(ds1307Clock.month));
+  time.concat(padded(ds1307Clock.dayOfMonth));
   time.concat(F(" "));
-  time.concat(padded(clock.hour));
-  time.concat(padded(clock.minute));
-  time.concat(padded(clock.second));
+  time.concat(padded(ds1307Clock.hour));
+  time.concat(padded(ds1307Clock.minute));
+  time.concat(padded(ds1307Clock.second));
   return time;
 }
 
+/**
+   Prefix int value with zero-es
+*/
 String padded(int value) {
   String result = "";
   if (value < 10) {
@@ -301,57 +259,72 @@ int freeRam() {
   return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);
 }
 
-void cmd_send(String cmd) {
-  Serial.print(F("cmd: "));
-  Serial.println(cmd);
-  Serial1.println(cmd);
+void SendPostRequest(String data) {
+
+//  sendData("AT+PING=\"192.168.0.192\"\r\n", 3000);
+//  delay(3000);
+
+//  sendData("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 3000);
+//  delay(3000);
+  
+  sendData("AT+CIPSTART=\"TCP\",\"3.212.190.255\",80\r\n", 3000);
+  delay(3000);
+
+  // close all connections
+  sendData("AT+CIPCLOSE\r\n", 2000);
+  delay(2000);
 }
 
-void cmd_read() {
-  while (Serial1.available()) {
-    Serial.write(Serial1.read());
+void InitWifiModule() {
+
+  Serial.print(F("Connecting wifi to: "));
+  Serial.println(SECRET_SSID);
+
+  // reset module
+  sendData("AT+RST\r\n", 2000);
+  
+  String wifiSignInCommand = "AT+CWJAP=";
+  wifiSignInCommand += "\"";
+  wifiSignInCommand += SECRET_SSID;
+  wifiSignInCommand += "\"";
+  wifiSignInCommand += ",";
+  wifiSignInCommand += "\"";
+  wifiSignInCommand += SECRET_PASS;
+  wifiSignInCommand += "\"";
+  wifiSignInCommand += "\r\n";
+  // sign in to wifi network
+  sendData(wifiSignInCommand, 2000);
+  delay(3000);
+
+  // set client mode
+  sendData("AT+CWMODE=1\r\n", 1500);
+  delay(1500);
+
+  // show assigned ip
+  sendData("AT+CIFSR\r\n", 1500);
+  delay(1500);
+
+  // set multiple connections
+//  sendData("AT+CIPMUX=1\r\n", 1500);
+//  delay(1500);
+  
+//  sendData("AT+CIPSERVER=1,80\r\n", 1500);
+}
+
+String sendData(String command, const int timeout) {
+  
+  esp8266.print(command);
+
+  String response = "";
+  long int time = millis();
+  while ( (time + timeout) > millis()){
+    while (esp8266.available()) {
+      char c = esp8266.read();
+      response += c;
+    }
   }
-  Serial.println();
+  if (WIFI_DEBUG) {
+    Serial.println(response);
+  }
+  return response;
 }
-
-//void handleHttpRequest() {
-//
-//  WiFiEspClient client = server.available();  // listen for incoming clients
-//
-//  if (client) {
-//    Serial.println(F("New client"));
-//    buf.init();
-//    while (client.connected()) {
-//      if (client.available()) {
-//        char c = client.read();
-////        Serial.print(c);
-//        buf.push(c);
-//        // you got two newline characters in a row
-//        // that's the end of the HTTP request, so send a response
-//        if (buf.endsWith("\r\n\r\n")) {
-//          Serial.println();
-//          sendHttpResponse(client);
-//          break;
-//        }
-//      }
-//    }
-//
-//    // give the web browser time to receive the data
-//    delay(10);
-//
-//    // close the connection
-//    client.stop();
-//    Serial.println(F("Client disconnected"));
-//  }
-//}
-//
-//void sendHttpResponse(WiFiEspClient client) {
-//  Serial.println(F("Sending response..."));
-//  client.print(F(
-//    "HTTP/1.1 200 OK\r\n"
-//    "Content-Type: text/plain\r\n"
-//    "Connection: close\r\n"  // the connection will be closed after completion of the response
-//    "\r\n"));
-//  client.print(F("Hello\r\n"));
-//  client.flush();
-//}

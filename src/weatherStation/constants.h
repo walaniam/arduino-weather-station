@@ -4,3 +4,5 @@
 #define DATA_FILE (String) "data06.txt"
 #define WIFI_RX 2
 #define WIFI_TX 3
+#define SERIAL_SPEED 115200
+#define WIFI_DEBUG (bool) true
