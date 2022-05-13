@@ -18,20 +18,18 @@ struct TempAndPressure {
   float pressure;
 };
 
-unsigned long lastLoopTime;
-bool buttonState = true;
 AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
-DS1307 ds1307Clock;
+DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor = Dps310();
-
+SoftwareSerial esp8266(WIFI_RX, WIFI_TX);
 #ifdef USE_SD
 File dataFile;
 #endif
 
-//IPAddress ip(192, 168, 0, 128);
-SoftwareSerial esp8266(WIFI_RX, WIFI_TX);
-
+unsigned long lastLoopTime;
+bool buttonState = true;
+String lastWeatherData = "no data";
 
 void setup() {
 
@@ -42,26 +40,26 @@ void setup() {
   pinMode(BUTTON_PIN, INPUT);
 
   // Clock
-  ds1307Clock.begin();
+  clock.begin();
 #ifdef SET_TIME
-  ds1307Clock.fillByYMD(2022, 4, 20);
-  ds1307Clock.fillByHMS(13, 38, 00);
-  ds1307Clock.fillDayOfWeek(WED);
-  ds1307Clock.setTime();
+  clock.fillByYMD(2022, 4, 20);
+  clock.fillByHMS(13, 38, 00);
+  clock.fillDayOfWeek(WED);
+  clock.setTime();
 #endif
 
   // LCD
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
 
-  // Serial1
+  // Software Serial
   Serial.println(F("Initializing Serial1"));
   esp8266.begin(SERIAL_SPEED);
   while (!esp8266);
   Serial.println(F("Initialized Serial1"));
 
   // WiFi
-  InitWifiModule();
+  initWifiModule();
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -115,6 +113,8 @@ void setup() {
 
 
 void loop() {
+
+  handleHttpRequest();
 
   unsigned long now = millis();
 
@@ -216,9 +216,7 @@ TempAndPressure digitalTempAndPressure() {
 }
 
 void logData(String data) {
-
-  SendPostRequest(data);
-
+  lastWeatherData = data;
 #ifdef USE_SD
   dataFile.println(data);
   dataFile.flush();
@@ -229,15 +227,15 @@ void logData(String data) {
    Get formatter date-time.
 */
 String getTime() {
-  ds1307Clock.getTime();
+  clock.getTime();
   String time = "";
-  time.concat(ds1307Clock.year + 2000);
-  time.concat(padded(ds1307Clock.month));
-  time.concat(padded(ds1307Clock.dayOfMonth));
+  time.concat(clock.year + 2000);
+  time.concat(padded(clock.month));
+  time.concat(padded(clock.dayOfMonth));
   time.concat(F(" "));
-  time.concat(padded(ds1307Clock.hour));
-  time.concat(padded(ds1307Clock.minute));
-  time.concat(padded(ds1307Clock.second));
+  time.concat(padded(clock.hour));
+  time.concat(padded(clock.minute));
+  time.concat(padded(clock.second));
   return time;
 }
 
@@ -259,30 +257,51 @@ int freeRam() {
   return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);
 }
 
-void SendPostRequest(String data) {
+void handleHttpRequest() {
+  if (esp8266.available()) {
+    if (esp8266.find("+IPD,")) {
+      delay(500);
 
-//  sendData("AT+PING=\"192.168.0.192\"\r\n", 3000);
-//  delay(3000);
+      int connectionId = esp8266.read() - 48;
 
-//  sendData("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 3000);
-//  delay(3000);
-  
-  sendData("AT+CIPSTART=\"TCP\",\"3.212.190.255\",80\r\n", 3000);
-  delay(3000);
+      // send headers
+//      String headers = "HTTP/1.1 200 OK";
+//      String headersSend = "AT+CIPSEND=";
+//      headersSend += connectionId;
+//      headersSend += ",";
+//      headersSend += headers.length();
+//      headersSend += "\r\n";
+//      
+//      atCommand(headersSend, 1000);
+//      atCommand(headers, 1000);
 
-  // close all connections
-  sendData("AT+CIPCLOSE\r\n", 2000);
-  delay(2000);
+      // send response body
+      String webpage = lastWeatherData;
+      String cipSend = "AT+CIPSEND=";
+      cipSend += connectionId;
+      cipSend += ",";
+      cipSend += webpage.length();
+      cipSend += "\r\n";
+      atCommand(cipSend, 1000);
+      atCommand(webpage, 1000);
+
+      // close connection
+      String closeCommand = "AT+CIPCLOSE=";
+      closeCommand += connectionId; // append connection id
+      closeCommand += "\r\n";
+      atCommand(closeCommand, 3000);
+    }
+  }
 }
 
-void InitWifiModule() {
+void initWifiModule() {
 
   Serial.print(F("Connecting wifi to: "));
   Serial.println(SECRET_SSID);
 
   // reset module
-  sendData("AT+RST\r\n", 2000);
-  
+  atCommand("AT+RST\r\n", 2000);
+
   String wifiSignInCommand = "AT+CWJAP=";
   wifiSignInCommand += "\"";
   wifiSignInCommand += SECRET_SSID;
@@ -293,31 +312,36 @@ void InitWifiModule() {
   wifiSignInCommand += "\"";
   wifiSignInCommand += "\r\n";
   // sign in to wifi network
-  sendData(wifiSignInCommand, 2000);
+  atCommand(wifiSignInCommand, 2000);
   delay(3000);
 
   // set client mode
-  sendData("AT+CWMODE=1\r\n", 1500);
+  atCommand("AT+CWMODE=1\r\n", 1500);
   delay(1500);
 
   // show assigned ip
-  sendData("AT+CIFSR\r\n", 1500);
+  atCommand("AT+CIFSR\r\n", 1500);
   delay(1500);
 
   // set multiple connections
-//  sendData("AT+CIPMUX=1\r\n", 1500);
-//  delay(1500);
-  
-//  sendData("AT+CIPSERVER=1,80\r\n", 1500);
+  atCommand("AT+CIPMUX=1\r\n", 1500);
+  delay(1500);
+
+  atCommand("AT+CIPSERVER=1,80\r\n", 1500);
+  delay(1500);
 }
 
-String sendData(String command, const int timeout) {
-  
+String atCommand(String command, const int timeout) {
+
+  esp8266.flush();
   esp8266.print(command);
+  esp8266.flush();
+
+  delay(100);
 
   String response = "";
   long int time = millis();
-  while ( (time + timeout) > millis()){
+  while ( (time + timeout) > millis()) {
     while (esp8266.available()) {
       char c = esp8266.read();
       response += c;
