@@ -61,6 +61,7 @@ void setup() {
 
   // WiFi
   initWifiModule();
+  initHttpServer();
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -126,7 +127,7 @@ void loop() {
     }
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print(F("Waiting..."));    
+    lcd.print(F("Waiting..."));
     delay(1000);
   }
 
@@ -230,6 +231,13 @@ void logData(String data) {
   dataFile.println(data);
   dataFile.flush();
 #endif
+
+  //  atCommand("AT+CIPSTART=\"TCP\",\"arduino.cc\",80\r\n", 5000);
+  //  delay(5000);
+  //
+  //  // close connection
+  //  atCommand(F("AT+CIPCLOSE\r\n"), 3000);
+  //  delay(3000);
 }
 
 /**
@@ -329,13 +337,15 @@ void initWifiModule() {
   delay(1500);
 
   // show assigned ip
-  String ipResponse = atCommand("AT+CIFSR\r\n", 1500);  
+  String ipResponse = atCommand("AT+CIFSR\r\n", 1500);
   int ipBegin = ipResponse.indexOf('"');
   ipResponse = ipResponse.substring(ipBegin + 1, ipResponse.length());
   int ipEnd = ipResponse.indexOf('"');
   myIp = ipResponse.substring(0, ipEnd);
   delay(1500);
+}
 
+void initHttpServer() {
   // set multiple connections
   atCommand("AT+CIPMUX=1\r\n", 1500);
   delay(1500);
