@@ -28,8 +28,9 @@ File dataFile;
 #endif
 
 unsigned long lastLoopTime;
-bool buttonState = true;
+byte buttonState = 0;
 String lastWeatherData = "no data";
+String myIp = "unknown";
 
 void setup() {
 
@@ -119,12 +120,13 @@ void loop() {
   unsigned long now = millis();
 
   if (digitalRead(BUTTON_PIN) == HIGH) {
-    buttonState = !buttonState;
-    if (buttonState) {
-      lcd.display();
-    } else {
-      lcd.noDisplay();
+    buttonState += 1;
+    if (buttonState > 1) {
+      buttonState = 0;
     }
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(F("Waiting..."));    
     delay(1000);
   }
 
@@ -155,19 +157,26 @@ void loop() {
 
   // LCD
   lcd.clear();
-  // Temp line
-  lcd.setCursor(0, 0);
-  lcd.print(F("C"));
-  lcd.print((char)223);
-  lcd.print(F(":"));
-  lcd.print(String(temperature1, 2));
-  lcd.print(F(" / "));
-  lcd.print(String(temperature2, 2));
-  // Pressure line
-  lcd.setCursor(0, 1);
-  String pressureMessage = "hPa: ";
-  pressureMessage.concat(String(avgPressure_hPa, 2));
-  lcd.print(pressureMessage);
+  if (buttonState == 0) {
+    // Temp line
+    lcd.setCursor(0, 0);
+    lcd.print(F("C"));
+    lcd.print((char)223);
+    lcd.print(F(":"));
+    lcd.print(String(temperature1, 2));
+    lcd.print(F(" / "));
+    lcd.print(String(temperature2, 2));
+    // Pressure line
+    lcd.setCursor(0, 1);
+    String pressureMessage = "hPa: ";
+    pressureMessage.concat(String(avgPressure_hPa, 2));
+    lcd.print(pressureMessage);
+  } else if (buttonState == 1) {
+    lcd.setCursor(0, 0);
+    lcd.print(F("IP:"));
+    lcd.setCursor(0, 1);
+    lcd.print(myIp);
+  }
 
   String csv = "";
   csv.concat(time);
@@ -265,15 +274,15 @@ void handleHttpRequest() {
       int connectionId = esp8266.read() - 48;
 
       // send headers
-//      String headers = "HTTP/1.1 200 OK";
-//      String headersSend = "AT+CIPSEND=";
-//      headersSend += connectionId;
-//      headersSend += ",";
-//      headersSend += headers.length();
-//      headersSend += "\r\n";
-//      
-//      atCommand(headersSend, 1000);
-//      atCommand(headers, 1000);
+      //      String headers = "HTTP/1.1 200 OK";
+      //      String headersSend = "AT+CIPSEND=";
+      //      headersSend += connectionId;
+      //      headersSend += ",";
+      //      headersSend += headers.length();
+      //      headersSend += "\r\n";
+      //
+      //      atCommand(headersSend, 1000);
+      //      atCommand(headers, 1000);
 
       // send response body
       String webpage = lastWeatherData;
@@ -287,7 +296,7 @@ void handleHttpRequest() {
 
       // close connection
       String closeCommand = "AT+CIPCLOSE=";
-      closeCommand += connectionId; // append connection id
+      closeCommand += connectionId;
       closeCommand += "\r\n";
       atCommand(closeCommand, 3000);
     }
@@ -320,7 +329,11 @@ void initWifiModule() {
   delay(1500);
 
   // show assigned ip
-  atCommand("AT+CIFSR\r\n", 1500);
+  String ipResponse = atCommand("AT+CIFSR\r\n", 1500);  
+  int ipBegin = ipResponse.indexOf('"');
+  ipResponse = ipResponse.substring(ipBegin + 1, ipResponse.length());
+  int ipEnd = ipResponse.indexOf('"');
+  myIp = ipResponse.substring(0, ipEnd);
   delay(1500);
 
   // set multiple connections
