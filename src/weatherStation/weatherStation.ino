@@ -1,28 +1,29 @@
 //#define DEBUG
 //#define SET_TIME
 //#define USE_SD
-#include <SoftwareSerial.h>
 #ifdef USE_SD
 #include <SD.h>
 #endif
 
-#include "AnalogTemperatureSensor.h"
+#include <SoftwareSerial.h>
 #include <Dps310.h>
+#include "WifiClient.h"
+#include "AnalogTemperatureSensor.h"
 #include "DS1307.h"
 #include "rgb_lcd.h"
 #include "constants.h"
-#include "secrets.h"
 
 struct TempAndPressure {
   float temp;
   float pressure;
 };
 
-AnalogTemperatureSensor analogTemp = AnalogTemperatureSensor(ANALOG_TEMPERATURE_PIN);
+AnalogTemperatureSensor analogTemp(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
 rgb_lcd lcd;
-Dps310 pressureSensor = Dps310();
+Dps310 pressureSensor;
 SoftwareSerial esp8266(WIFI_RX, WIFI_TX);
+WifiClient wifiClient;
 #ifdef USE_SD
 File dataFile;
 #endif
@@ -30,7 +31,6 @@ File dataFile;
 unsigned long lastLoopTime;
 byte buttonState = 0;
 String lastWeatherData = "no data";
-String myIp = "unknown";
 
 void setup() {
 
@@ -53,14 +53,12 @@ void setup() {
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
 
-  // Software Serial
-  Serial.println(F("Initializing Serial1"));
+  // WiFi
+  Serial.println(F("Initializing esp8266 serial"));
   esp8266.begin(SERIAL_SPEED);
   while (!esp8266);
-  Serial.println(F("Initialized Serial1"));
-
-  // WiFi
-  initWifiModule();
+  Serial.println(F("Initialized esp8266 serial"));  
+  wifiClient.begin(&esp8266, MODE_WIFI_SERVER);
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -110,12 +108,14 @@ void setup() {
   Serial.print(F("SRAM = "));
   Serial.println(freeRam());
 #endif
+
+  Serial.println(F("setup done"));
 }
 
 
 void loop() {
 
-  handleHttpRequest();
+  wifiClient.handleHttpRequest(lastWeatherData);
 
   unsigned long now = millis();
 
@@ -126,7 +126,7 @@ void loop() {
     }
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print(F("Waiting..."));    
+    lcd.print(F("Waiting..."));
     delay(1000);
   }
 
@@ -175,7 +175,7 @@ void loop() {
     lcd.setCursor(0, 0);
     lcd.print(F("IP:"));
     lcd.setCursor(0, 1);
-    lcd.print(myIp);
+    lcd.print(wifiClient.myIp);
   }
 
   String csv = "";
@@ -230,6 +230,7 @@ void logData(String data) {
   dataFile.println(data);
   dataFile.flush();
 #endif
+  wifiClient.sendPostRequest(lastWeatherData);
 }
 
 /**
@@ -264,104 +265,4 @@ int freeRam() {
   extern int __heap_start, *__brkval;
   int v;
   return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);
-}
-
-void handleHttpRequest() {
-  if (esp8266.available()) {
-    if (esp8266.find("+IPD,")) {
-      delay(500);
-
-      int connectionId = esp8266.read() - 48;
-
-      // send headers
-      //      String headers = "HTTP/1.1 200 OK";
-      //      String headersSend = "AT+CIPSEND=";
-      //      headersSend += connectionId;
-      //      headersSend += ",";
-      //      headersSend += headers.length();
-      //      headersSend += "\r\n";
-      //
-      //      atCommand(headersSend, 1000);
-      //      atCommand(headers, 1000);
-
-      // send response body
-      String webpage = lastWeatherData;
-      String cipSend = "AT+CIPSEND=";
-      cipSend += connectionId;
-      cipSend += ",";
-      cipSend += webpage.length();
-      cipSend += "\r\n";
-      atCommand(cipSend, 1000);
-      atCommand(webpage, 1000);
-
-      // close connection
-      String closeCommand = "AT+CIPCLOSE=";
-      closeCommand += connectionId;
-      closeCommand += "\r\n";
-      atCommand(closeCommand, 3000);
-    }
-  }
-}
-
-void initWifiModule() {
-
-  Serial.print(F("Connecting wifi to: "));
-  Serial.println(SECRET_SSID);
-
-  // reset module
-  atCommand("AT+RST\r\n", 2000);
-
-  String wifiSignInCommand = "AT+CWJAP=";
-  wifiSignInCommand += "\"";
-  wifiSignInCommand += SECRET_SSID;
-  wifiSignInCommand += "\"";
-  wifiSignInCommand += ",";
-  wifiSignInCommand += "\"";
-  wifiSignInCommand += SECRET_PASS;
-  wifiSignInCommand += "\"";
-  wifiSignInCommand += "\r\n";
-  // sign in to wifi network
-  atCommand(wifiSignInCommand, 2000);
-  delay(3000);
-
-  // set client mode
-  atCommand("AT+CWMODE=1\r\n", 1500);
-  delay(1500);
-
-  // show assigned ip
-  String ipResponse = atCommand("AT+CIFSR\r\n", 1500);  
-  int ipBegin = ipResponse.indexOf('"');
-  ipResponse = ipResponse.substring(ipBegin + 1, ipResponse.length());
-  int ipEnd = ipResponse.indexOf('"');
-  myIp = ipResponse.substring(0, ipEnd);
-  delay(1500);
-
-  // set multiple connections
-  atCommand("AT+CIPMUX=1\r\n", 1500);
-  delay(1500);
-
-  atCommand("AT+CIPSERVER=1,80\r\n", 1500);
-  delay(1500);
-}
-
-String atCommand(String command, const int timeout) {
-
-  esp8266.flush();
-  esp8266.print(command);
-  esp8266.flush();
-
-  delay(100);
-
-  String response = "";
-  long int time = millis();
-  while ( (time + timeout) > millis()) {
-    while (esp8266.available()) {
-      char c = esp8266.read();
-      response += c;
-    }
-  }
-  if (WIFI_DEBUG) {
-    Serial.println(response);
-  }
-  return response;
 }
