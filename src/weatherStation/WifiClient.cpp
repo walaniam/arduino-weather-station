@@ -74,7 +74,7 @@ void WifiClient::sendPostRequest(String data) {
 
 void WifiClient::handleHttpRequest(String data) {
   if (esp8266->available()) {
-    if (esp8266->find(F("+IPD,"))) {
+    if (esp8266->find("+IPD,")) {
       delay(500);
 
       int connectionId = esp8266->read() - 48;

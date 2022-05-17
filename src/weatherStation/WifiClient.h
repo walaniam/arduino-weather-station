@@ -5,7 +5,6 @@
 #define MODE_WIFI_SERVER 1
 
 #include <Arduino.h>
-#include <string.h>
 #include <SoftwareSerial.h>
 #include "constants.h"
 #include "secrets.h"
