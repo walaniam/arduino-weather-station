@@ -6,6 +6,7 @@
 
 #include <Arduino.h>
 #include <SoftwareSerial.h>
+#include "Utils.h"
 #include "constants.h"
 #include "secrets.h"
 
@@ -16,9 +17,10 @@ class WifiClient {
     WifiClient();
     ~WifiClient();
     void begin(SoftwareSerial *_esp8266, int mode);
-    String atCommand(String command, const int timeout);
-    void handleHttpRequest(String data);
-    void sendPostRequest(String data);
+    void atCommand(String command, const int timeout);
+    String atCommandWithResponse(String command, const int timeout);
+    void handleHttpRequest(char data[]);
+    void sendPostRequest(char data[]);
     char myIp[16];
 };
 

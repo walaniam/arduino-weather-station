@@ -6,3 +6,4 @@
 #define WIFI_TX 3
 #define SERIAL_SPEED 115200
 #define WIFI_DEBUG (bool) true
+#define CSV_BUFFER_SIZE 64

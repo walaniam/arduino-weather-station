@@ -7,6 +7,7 @@
 
 #include <SoftwareSerial.h>
 #include <Dps310.h>
+#include "Utils.h"
 #include "WifiClient.h"
 #include "AnalogTemperatureSensor.h"
 #include "DS1307.h"
@@ -30,7 +31,7 @@ File dataFile;
 
 unsigned long lastLoopTime;
 byte buttonState = 0;
-String lastWeatherData = "no data";
+char csvBuffer[CSV_BUFFER_SIZE] = "no data";
 
 void setup() {
 
@@ -57,12 +58,12 @@ void setup() {
   Serial.println(F("Initializing esp8266 serial"));
   esp8266.begin(SERIAL_SPEED);
   while (!esp8266);
-  Serial.println(F("Initialized esp8266 serial"));  
+  Serial.println(F("Initialized esp8266 serial"));
   wifiClient.begin(&esp8266, MODE_WIFI_SERVER);
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
-  Serial.println(freeRam());
+  Serial.println(Utils::freeRam());
 #endif
 
   // Open file
@@ -106,7 +107,7 @@ void setup() {
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
-  Serial.println(freeRam());
+  Serial.println(Utils::freeRam());
 #endif
 
   Serial.println(F("setup done"));
@@ -115,7 +116,7 @@ void setup() {
 
 void loop() {
 
-  wifiClient.handleHttpRequest(lastWeatherData);
+  wifiClient.handleHttpRequest(csvBuffer);
 
   unsigned long now = millis();
 
@@ -178,14 +179,14 @@ void loop() {
     lcd.print(wifiClient.myIp);
   }
 
-  String csv = "";
-  csv.concat(time);
-  csv.concat(F(","));
-  csv.concat(String(temperature1, 2));
-  csv.concat(F(","));
-  csv.concat(String(temperature2, 2));
-  csv.concat(F(","));
-  csv.concat(String(avgPressure_hPa, 2));
+  char csv[CSV_BUFFER_SIZE];
+  strcpy(csv, time.c_str());
+  Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
+  strcat(csv, String(temperature1, 2).c_str());
+  Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
+  strcat(csv, String(temperature2, 2).c_str());
+  Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
+  strcat(csv, String(avgPressure_hPa, 2).c_str());
   logData(csv);
 }
 
@@ -224,13 +225,13 @@ TempAndPressure digitalTempAndPressure() {
   };
 }
 
-void logData(String data) {
-  lastWeatherData = data;
+void logData(char csvData[]) {
+  strcpy(csvBuffer, csvData);
 #ifdef USE_SD
   dataFile.println(data);
   dataFile.flush();
 #endif
-  wifiClient.sendPostRequest(lastWeatherData);
+  wifiClient.sendPostRequest(csvBuffer);
 }
 
 /**
@@ -240,29 +241,11 @@ String getTime() {
   clock.getTime();
   String time = "";
   time.concat(clock.year + 2000);
-  time.concat(padded(clock.month));
-  time.concat(padded(clock.dayOfMonth));
+  time.concat(Utils::padded(clock.month));
+  time.concat(Utils::padded(clock.dayOfMonth));
   time.concat(F(" "));
-  time.concat(padded(clock.hour));
-  time.concat(padded(clock.minute));
-  time.concat(padded(clock.second));
+  time.concat(Utils::padded(clock.hour));
+  time.concat(Utils::padded(clock.minute));
+  time.concat(Utils::padded(clock.second));
   return time;
-}
-
-/**
-   Prefix int value with zero-es
-*/
-String padded(int value) {
-  String result = "";
-  if (value < 10) {
-    result.concat(F("0"));
-  }
-  result.concat(String(value));
-  return result;
-}
-
-int freeRam() {
-  extern int __heap_start, *__brkval;
-  int v;
-  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);
 }
