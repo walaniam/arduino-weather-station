@@ -7,6 +7,7 @@
 
 #include <SoftwareSerial.h>
 #include <Dps310.h>
+#include "Utils.h"
 #include "WifiClient.h"
 #include "AnalogTemperatureSensor.h"
 #include "DS1307.h"
@@ -30,7 +31,6 @@ File dataFile;
 
 unsigned long lastLoopTime;
 byte buttonState = 0;
-
 char csvBuffer[CSV_BUFFER_SIZE] = "no data";
 
 void setup() {
@@ -63,7 +63,7 @@ void setup() {
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
-  Serial.println(freeRam());
+  Serial.println(Utils::freeRam());
 #endif
 
   // Open file
@@ -107,7 +107,7 @@ void setup() {
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
-  Serial.println(freeRam());
+  Serial.println(Utils::freeRam());
 #endif
 
   Serial.println(F("setup done"));
@@ -181,11 +181,11 @@ void loop() {
 
   char csv[CSV_BUFFER_SIZE];
   strcpy(csv, time.c_str());
-  appendChar(csv, ',', CSV_BUFFER_SIZE);
+  Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(temperature1, 2).c_str());
-  appendChar(csv, ',', CSV_BUFFER_SIZE);
+  Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(temperature2, 2).c_str());
-  appendChar(csv, ',', CSV_BUFFER_SIZE);
+  Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(avgPressure_hPa, 2).c_str());
   logData(csv);
 }
@@ -241,41 +241,11 @@ String getTime() {
   clock.getTime();
   String time = "";
   time.concat(clock.year + 2000);
-  time.concat(padded(clock.month));
-  time.concat(padded(clock.dayOfMonth));
+  time.concat(Utils::padded(clock.month));
+  time.concat(Utils::padded(clock.dayOfMonth));
   time.concat(F(" "));
-  time.concat(padded(clock.hour));
-  time.concat(padded(clock.minute));
-  time.concat(padded(clock.second));
+  time.concat(Utils::padded(clock.hour));
+  time.concat(Utils::padded(clock.minute));
+  time.concat(Utils::padded(clock.second));
   return time;
-}
-
-
-bool appendChar(char* str, char c, int bufferSize) {
-  int len = strlen(str);
-  if (len + 1 >= bufferSize) {
-    return false;
-  } else {
-    str[len] = c;
-    str[len + 1] = '\0';
-    return true;
-  }
-}
-
-/**
-   Prefix int value with zero-es
-*/
-String padded(int value) {
-  String result = "";
-  if (value < 10) {
-    result.concat(F("0"));
-  }
-  result.concat(String(value));
-  return result;
-}
-
-int freeRam() {
-  extern int __heap_start, *__brkval;
-  int v;
-  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int) __brkval);
 }
