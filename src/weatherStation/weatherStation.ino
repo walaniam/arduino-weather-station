@@ -30,7 +30,8 @@ File dataFile;
 
 unsigned long lastLoopTime;
 byte buttonState = 0;
-String lastWeatherData = "no data";
+
+char csvBuffer[CSV_BUFFER_SIZE] = "no data";
 
 void setup() {
 
@@ -57,7 +58,7 @@ void setup() {
   Serial.println(F("Initializing esp8266 serial"));
   esp8266.begin(SERIAL_SPEED);
   while (!esp8266);
-  Serial.println(F("Initialized esp8266 serial"));  
+  Serial.println(F("Initialized esp8266 serial"));
   wifiClient.begin(&esp8266, MODE_WIFI_SERVER);
 
 #ifdef DEBUG
@@ -115,7 +116,7 @@ void setup() {
 
 void loop() {
 
-  wifiClient.handleHttpRequest(lastWeatherData);
+  wifiClient.handleHttpRequest(csvBuffer);
 
   unsigned long now = millis();
 
@@ -178,14 +179,14 @@ void loop() {
     lcd.print(wifiClient.myIp);
   }
 
-  String csv = "";
-  csv.concat(time);
-  csv.concat(F(","));
-  csv.concat(String(temperature1, 2));
-  csv.concat(F(","));
-  csv.concat(String(temperature2, 2));
-  csv.concat(F(","));
-  csv.concat(String(avgPressure_hPa, 2));
+  char csv[CSV_BUFFER_SIZE];
+  strcpy(csv, time.c_str());
+  appendChar(csv, ',', CSV_BUFFER_SIZE);
+  strcat(csv, String(temperature1, 2).c_str());
+  appendChar(csv, ',', CSV_BUFFER_SIZE);
+  strcat(csv, String(temperature2, 2).c_str());
+  appendChar(csv, ',', CSV_BUFFER_SIZE);
+  strcat(csv, String(avgPressure_hPa, 2).c_str());
   logData(csv);
 }
 
@@ -224,13 +225,13 @@ TempAndPressure digitalTempAndPressure() {
   };
 }
 
-void logData(String data) {
-  lastWeatherData = data;
+void logData(char csvData[]) {
+  strcpy(csvBuffer, csvData);
 #ifdef USE_SD
   dataFile.println(data);
   dataFile.flush();
 #endif
-  wifiClient.sendPostRequest(lastWeatherData);
+  wifiClient.sendPostRequest(csvBuffer);
 }
 
 /**
@@ -247,6 +248,18 @@ String getTime() {
   time.concat(padded(clock.minute));
   time.concat(padded(clock.second));
   return time;
+}
+
+
+bool appendChar(char* str, char c, int bufferSize) {
+  int len = strlen(str);
+  if (len + 1 >= bufferSize) {
+    return false;
+  } else {
+    str[len] = c;
+    str[len + 1] = '\0';
+    return true;
+  }
 }
 
 /**

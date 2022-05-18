@@ -17,8 +17,8 @@ class WifiClient {
     ~WifiClient();
     void begin(SoftwareSerial *_esp8266, int mode);
     String atCommand(String command, const int timeout);
-    void handleHttpRequest(String data);
-    void sendPostRequest(String data);
+    void handleHttpRequest(char data[]);
+    void sendPostRequest(char data[]);
     char myIp[16];
 };
 

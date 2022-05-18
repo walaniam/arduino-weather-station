@@ -54,7 +54,7 @@ void WifiClient::begin(SoftwareSerial *_esp8266, int mode) {
   }
 }
 
-void WifiClient::sendPostRequest(String data) {
+void WifiClient::sendPostRequest(char data[]) {
 
   // ping gateway
   //    WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
@@ -72,22 +72,21 @@ void WifiClient::sendPostRequest(String data) {
 //  delay(1000);
 }
 
-void WifiClient::handleHttpRequest(String data) {
+void WifiClient::handleHttpRequest(char responseBody[]) {
   if (esp8266->available()) {
     if (esp8266->find("+IPD,")) {
       delay(500);
 
       int connectionId = esp8266->read() - 48;
 
-      // send response body
-      String webpage = data;
+      // send response
       String cipSend = "AT+CIPSEND=";
       cipSend += connectionId;
       cipSend += ",";
-      cipSend += webpage.length();
+      cipSend += strlen(responseBody);
       cipSend += "\r\n";
       WifiClient::atCommand(cipSend, 1000);
-      WifiClient::atCommand(webpage, 1000);
+      WifiClient::atCommand(responseBody, 1000);
 
       // close connection
       String closeCommand = "AT+CIPCLOSE=";
