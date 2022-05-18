@@ -80,14 +80,20 @@ void WifiClient::handleHttpRequest(char responseBody[]) {
 
       int connectionId = esp8266->read() - 48;
 
+      int bodyLength = strlen(responseBody);
+      char httpPayload[bodyLength + 120] = "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: ";
+      strcat(httpPayload, String(bodyLength).c_str());
+      strcat(httpPayload, "\r\n\r\n");
+      strcat(httpPayload, responseBody);
+
       // send response
       String cipSend = "AT+CIPSEND=";
       cipSend += connectionId;
       cipSend += ",";
-      cipSend += strlen(responseBody);
+      cipSend += strlen(httpPayload);
       cipSend += "\r\n";
       WifiClient::atCommand(cipSend, 1000);
-      WifiClient::atCommand(responseBody, 1000);
+      WifiClient::atCommand(httpPayload, 1000);
 
       // close connection
       String closeCommand = "AT+CIPCLOSE=";
