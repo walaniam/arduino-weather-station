@@ -112,10 +112,6 @@ void setup() {
 
 void loop() {
 
-#ifdef MODE_WIFI_CLIENT
-  wifiClient.sendPostRequest(csvBuffer);
-#endif
-
 #ifdef MODE_WIFI_SERVER
   wifiClient.handleHttpRequest(csvBuffer);
 #endif
@@ -190,6 +186,10 @@ void loop() {
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(avgPressure_hPa, 2).c_str());
   logData(csv);
+
+#ifdef MODE_WIFI_CLIENT
+  wifiClient.sendPostRequest(csvBuffer);
+#endif
 }
 
 /**

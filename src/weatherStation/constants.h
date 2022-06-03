@@ -1,4 +1,4 @@
-#define INTERVAL 10000
+#define INTERVAL 30000
 #define ANALOG_TEMPERATURE_PIN 0
 #define BUTTON_PIN 8
 #define DATA_FILE (String) "data07.txt"

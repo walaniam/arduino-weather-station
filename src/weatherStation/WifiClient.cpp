@@ -63,8 +63,23 @@ void WifiClient::sendPostRequest(char data[]) {
   WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 5000);
   delay(1000);
 
-  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
-  delay(1000);
+  int dataLength = strlen(data);
+
+  // 170 is size of all headers without body - make it dynamic
+  char httpPayload[dataLength + 170] = "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
+  strcat(httpPayload, String(dataLength).c_str());
+  strcat(httpPayload, "\r\n\r\n");
+  strcat(httpPayload, data);
+
+  // send response
+  String cipSend = "AT+CIPSEND=";
+  cipSend += strlen(httpPayload);
+  cipSend += "\r\n";
+  WifiClient::atCommand(cipSend, 1000);
+  WifiClient::atCommand(httpPayload, 1000);
+  
+//  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
+//  delay(1000);
 
   // close connection
   WifiClient::atCommand(F("AT+CIPCLOSE\r\n"), 3000);
@@ -104,6 +119,13 @@ void WifiClient::handleHttpRequest(char responseBody[]) {
 
 void WifiClient::atCommand(String command, const int timeout) {
 
+  if (WIFI_DEBUG) {
+    Serial.println(F("---BEGIN---"));
+    int count = min(command.length(), 15);
+    Serial.print(command.substring(0, count));
+    Serial.println(F("..."));
+  }
+
   esp8266->flush();
   esp8266->print(command);
   esp8266->flush();
@@ -120,11 +142,18 @@ void WifiClient::atCommand(String command, const int timeout) {
     }
   }
   if (WIFI_DEBUG) {
-    Serial.println();
+    Serial.println(F("---END---"));
   }
 }
 
 String WifiClient::atCommandWithResponse(String command, const int timeout) {
+
+  if (WIFI_DEBUG) {
+    Serial.println(F("---BEGIN---"));
+    int count = min(command.length(), 15);
+    Serial.print(command.substring(0, count));
+    Serial.println(F("..."));
+  }
 
   esp8266->flush();
   esp8266->print(command);
@@ -144,7 +173,7 @@ String WifiClient::atCommandWithResponse(String command, const int timeout) {
     }
   }
   if (WIFI_DEBUG) {
-    Serial.println();
+    Serial.println(F("---END---"));
   }
   return response;
 }
