@@ -7,3 +7,7 @@
 #define SERIAL_SPEED 115200
 #define WIFI_DEBUG (bool) true
 #define CSV_BUFFER_SIZE 64
+
+//#define DEBUG
+//#define SET_TIME
+//#define USE_SD

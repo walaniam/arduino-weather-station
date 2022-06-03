@@ -1,10 +1,7 @@
-//#define DEBUG
-//#define SET_TIME
-//#define USE_SD
+#include "constants.h"
 #ifdef USE_SD
 #include <SD.h>
 #endif
-
 #include <SoftwareSerial.h>
 #include <Dps310.h>
 #include "Utils.h"
@@ -12,7 +9,6 @@
 #include "AnalogTemperatureSensor.h"
 #include "DS1307.h"
 #include "rgb_lcd.h"
-#include "constants.h"
 
 struct TempAndPressure {
   float temp;
@@ -59,7 +55,7 @@ void setup() {
   esp8266.begin(SERIAL_SPEED);
   while (!esp8266);
   Serial.println(F("Initialized esp8266 serial"));
-  wifiClient.begin(&esp8266, MODE_WIFI_SERVER);
+  wifiClient.begin(&esp8266);
 
 #ifdef DEBUG
   Serial.print(F("SRAM = "));
@@ -116,7 +112,13 @@ void setup() {
 
 void loop() {
 
+#ifdef MODE_WIFI_CLIENT
+  wifiClient.sendPostRequest(csvBuffer);
+#endif
+
+#ifdef MODE_WIFI_SERVER
   wifiClient.handleHttpRequest(csvBuffer);
+#endif
 
   unsigned long now = millis();
 

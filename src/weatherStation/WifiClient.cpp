@@ -8,7 +8,7 @@ WifiClient::WifiClient() {
 WifiClient::~WifiClient() {
 }
 
-void WifiClient::begin(SoftwareSerial *_esp8266, int mode) {
+void WifiClient::begin(SoftwareSerial *_esp8266) {
 
   esp8266 = _esp8266;
 
@@ -44,33 +44,31 @@ void WifiClient::begin(SoftwareSerial *_esp8266, int mode) {
   ipResponse.toCharArray(myIp, ipEnd + 1);
   delay(1500);
 
+#ifdef MODE_WIFI_SERVER  
   // set multiple connections
   WifiClient::atCommand("AT+CIPMUX=1\r\n", 1500);
   delay(1500);
-
-  // Start in server mode
-  if (MODE_WIFI_SERVER == mode) {
-    WifiClient::atCommand("AT+CIPSERVER=1,80\r\n", 1500);
-    delay(1500);
-  }
+  // Start in server mode  
+  WifiClient::atCommand("AT+CIPSERVER=1,80\r\n", 1500);
+  delay(1500);
+#endif
 }
 
 void WifiClient::sendPostRequest(char data[]) {
 
-  // ping gateway
-  //    WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
-  //    delay(3000);
+//  ping gateway
+//  WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
+//  delay(3000);
 
-  //    WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"arduino.cc\",80\r\n", 5000);
-//  WifiClient::atCommand("AT+CIPSTART=0,\"TCP\",\"192.168.0.1\",80\r\n", 5000);
-//  delay(1000);
-//
-//  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
-//  delay(1000);
-//
-//  // close connection
-//  WifiClient::atCommand(F("AT+CIPCLOSE\r\n"), 3000);
-//  delay(1000);
+  WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 5000);
+  delay(1000);
+
+  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
+  delay(1000);
+
+  // close connection
+  WifiClient::atCommand(F("AT+CIPCLOSE\r\n"), 3000);
+  delay(1000);
 }
 
 void WifiClient::handleHttpRequest(char responseBody[]) {
@@ -127,7 +125,7 @@ void WifiClient::atCommand(String command, const int timeout) {
 }
 
 String WifiClient::atCommandWithResponse(String command, const int timeout) {
-  
+
   esp8266->flush();
   esp8266->print(command);
   esp8266->flush();
@@ -148,5 +146,5 @@ String WifiClient::atCommandWithResponse(String command, const int timeout) {
   if (WIFI_DEBUG) {
     Serial.println();
   }
-  return response;  
+  return response;
 }
