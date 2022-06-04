@@ -66,7 +66,8 @@ void WifiClient::sendPostRequest(char data[]) {
   int dataLength = strlen(data);
 
   // 170 is size of all headers without body - make it dynamic
-  char httpPayload[dataLength + 170] = "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
+  // TODO ip
+  char httpPayload[dataLength + 210] = "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nW_STATION_HOST: 192.168.0.137\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
   strcat(httpPayload, String(dataLength).c_str());
   strcat(httpPayload, "\r\n\r\n");
   strcat(httpPayload, data);

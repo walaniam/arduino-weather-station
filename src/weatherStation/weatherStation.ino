@@ -185,11 +185,8 @@ void loop() {
   strcat(csv, String(temperature2, 2).c_str());
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(avgPressure_hPa, 2).c_str());
+  
   logData(csv);
-
-#ifdef MODE_WIFI_CLIENT
-  wifiClient.sendPostRequest(csvBuffer);
-#endif
 }
 
 /**
@@ -230,10 +227,12 @@ TempAndPressure digitalTempAndPressure() {
 void logData(char csvData[]) {
   strcpy(csvBuffer, csvData);
 #ifdef USE_SD
-  dataFile.println(data);
+  dataFile.println(csvBuffer);
   dataFile.flush();
 #endif
+#ifdef MODE_WIFI_CLIENT
   wifiClient.sendPostRequest(csvBuffer);
+#endif
 }
 
 /**
