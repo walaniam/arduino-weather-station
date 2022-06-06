@@ -8,7 +8,7 @@ WifiClient::WifiClient() {
 WifiClient::~WifiClient() {
 }
 
-void WifiClient::begin(SoftwareSerial *_esp8266, int mode) {
+void WifiClient::begin(SoftwareSerial *_esp8266) {
 
   esp8266 = _esp8266;
 
@@ -44,33 +44,47 @@ void WifiClient::begin(SoftwareSerial *_esp8266, int mode) {
   ipResponse.toCharArray(myIp, ipEnd + 1);
   delay(1500);
 
+#ifdef MODE_WIFI_SERVER  
   // set multiple connections
   WifiClient::atCommand("AT+CIPMUX=1\r\n", 1500);
   delay(1500);
-
-  // Start in server mode
-  if (MODE_WIFI_SERVER == mode) {
-    WifiClient::atCommand("AT+CIPSERVER=1,80\r\n", 1500);
-    delay(1500);
-  }
+  // Start in server mode  
+  WifiClient::atCommand("AT+CIPSERVER=1,80\r\n", 1500);
+  delay(1500);
+#endif
 }
 
 void WifiClient::sendPostRequest(char data[]) {
 
-  // ping gateway
-  //    WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
-  //    delay(3000);
+//  ping gateway
+//  WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
+//  delay(3000);
 
-  //    WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"arduino.cc\",80\r\n", 5000);
-//  WifiClient::atCommand("AT+CIPSTART=0,\"TCP\",\"192.168.0.1\",80\r\n", 5000);
-//  delay(1000);
-//
+  WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 5000);
+  delay(1000);
+
+  int dataLength = strlen(data);
+
+  // 170 is size of all headers without body - make it dynamic
+  // TODO ip
+  char httpPayload[dataLength + 210] = "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nW_STATION_HOST: 192.168.0.137\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
+  strcat(httpPayload, String(dataLength).c_str());
+  strcat(httpPayload, "\r\n\r\n");
+  strcat(httpPayload, data);
+
+  // send response
+  String cipSend = "AT+CIPSEND=";
+  cipSend += strlen(httpPayload);
+  cipSend += "\r\n";
+  WifiClient::atCommand(cipSend, 1000);
+  WifiClient::atCommand(httpPayload, 1000);
+  
 //  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
 //  delay(1000);
-//
-//  // close connection
-//  WifiClient::atCommand(F("AT+CIPCLOSE\r\n"), 3000);
-//  delay(1000);
+
+  // close connection
+  WifiClient::atCommand(F("AT+CIPCLOSE\r\n"), 3000);
+  delay(1000);
 }
 
 void WifiClient::handleHttpRequest(char responseBody[]) {
@@ -106,6 +120,13 @@ void WifiClient::handleHttpRequest(char responseBody[]) {
 
 void WifiClient::atCommand(String command, const int timeout) {
 
+  if (WIFI_DEBUG) {
+    Serial.println(F("---BEGIN---"));
+    int count = min(command.length(), 15);
+    Serial.print(command.substring(0, count));
+    Serial.println(F("..."));
+  }
+
   esp8266->flush();
   esp8266->print(command);
   esp8266->flush();
@@ -122,12 +143,19 @@ void WifiClient::atCommand(String command, const int timeout) {
     }
   }
   if (WIFI_DEBUG) {
-    Serial.println();
+    Serial.println(F("---END---"));
   }
 }
 
 String WifiClient::atCommandWithResponse(String command, const int timeout) {
-  
+
+  if (WIFI_DEBUG) {
+    Serial.println(F("---BEGIN---"));
+    int count = min(command.length(), 15);
+    Serial.print(command.substring(0, count));
+    Serial.println(F("..."));
+  }
+
   esp8266->flush();
   esp8266->print(command);
   esp8266->flush();
@@ -146,7 +174,7 @@ String WifiClient::atCommandWithResponse(String command, const int timeout) {
     }
   }
   if (WIFI_DEBUG) {
-    Serial.println();
+    Serial.println(F("---END---"));
   }
-  return response;  
+  return response;
 }

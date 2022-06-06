@@ -1,8 +1,8 @@
 #ifndef WIFI_CLIENT_H
 #define WIFI_CLIENT_H
 
-#define MODE_WIFI_CLIENT_ONLY 0
-#define MODE_WIFI_SERVER 1
+//#define MODE_WIFI_SERVER
+#define MODE_WIFI_CLIENT
 
 #include <Arduino.h>
 #include <SoftwareSerial.h>
@@ -16,7 +16,7 @@ class WifiClient {
   public:
     WifiClient();
     ~WifiClient();
-    void begin(SoftwareSerial *_esp8266, int mode);
+    void begin(SoftwareSerial *_esp8266);
     void atCommand(String command, const int timeout);
     String atCommandWithResponse(String command, const int timeout);
     void handleHttpRequest(char data[]);
