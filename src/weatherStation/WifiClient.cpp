@@ -16,7 +16,7 @@ void WifiClient::begin(SoftwareSerial *_esp8266) {
   Serial.println(SECRET_SSID);
 
   // reset module
-  WifiClient::atCommand("AT+RST\r\n", 2000);
+  WifiClient::atCommand(F("AT+RST\r\n"), 2000);
 
   String wifiSignInCommand = "AT+CWJAP=";
   wifiSignInCommand += "\"";
@@ -32,11 +32,11 @@ void WifiClient::begin(SoftwareSerial *_esp8266) {
   delay(3000);
 
   // set client mode
-  WifiClient::atCommand("AT+CWMODE=1\r\n", 1500);
+  WifiClient::atCommand(F("AT+CWMODE=1\r\n"), 1500);
   delay(1500);
 
   // show assigned ip
-  String ipResponse = WifiClient::atCommandWithResponse("AT+CIFSR\r\n", 1500);
+  String ipResponse = WifiClient::atCommandWithResponse(F("AT+CIFSR\r\n"), 1500);
   int ipBegin = ipResponse.indexOf('"');
   ipResponse = ipResponse.substring(ipBegin + 1, ipResponse.length());
   int ipEnd = ipResponse.indexOf('"');
@@ -46,10 +46,10 @@ void WifiClient::begin(SoftwareSerial *_esp8266) {
 
 #ifdef MODE_WIFI_SERVER  
   // set multiple connections
-  WifiClient::atCommand("AT+CIPMUX=1\r\n", 1500);
+  WifiClient::atCommand(F("AT+CIPMUX=1\r\n"), 1500);
   delay(1500);
   // Start in server mode  
-  WifiClient::atCommand("AT+CIPSERVER=1,80\r\n", 1500);
+  WifiClient::atCommand(F("AT+CIPSERVER=1,80\r\n"), 1500);
   delay(1500);
 #endif
 }
@@ -59,24 +59,44 @@ void WifiClient::sendPostRequest(char data[]) {
 //  ping gateway
 //  WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
 //  delay(3000);
+  
+  char atCommand[AT_COMMAND_BUFFER_SIZE];
 
-  WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 5000);
+  // CIPSTART
+  strcat(atCommand, "AT+CIPSTART=\"TCP\",\"");
+  strcat(atCommand, AZ_FUNCTION_HOST);
+  strcat(atCommand, "\",");
+  strcat(atCommand, AZ_FUNCTION_PORT);
+  strcat(atCommand, "\r\n");
+//  WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 5000);
+  WifiClient::atCommand(atCommand, 5000);
   delay(1000);
+  memset(atCommand, '\0', AT_COMMAND_BUFFER_SIZE);
+  
 
+  // Build POST request
   int dataLength = strlen(data);
-
-  // 170 is size of all headers without body - make it dynamic
-  // TODO ip
-  char httpPayload[dataLength + 210] = "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nW_STATION_HOST: 192.168.0.137\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
+  char httpPayload[dataLength + 256];
+  //strcat(httpPayload, "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nW_STATION_HOST: 192.168.0.137\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
+  strcat(httpPayload, "POST ");
+  strcat(httpPayload, AZ_FUNCTION_URI);
+  strcat(httpPayload, " HTTP/1.1\r\n");
+  // headers
+  strcat(httpPayload, "Host: ");
+  strcat(httpPayload, AZ_FUNCTION_HOST);
+  strcat(httpPayload, ":");
+  strcat(httpPayload, AZ_FUNCTION_PORT);
+  strcat(httpPayload, "\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ");
   strcat(httpPayload, String(dataLength).c_str());
   strcat(httpPayload, "\r\n\r\n");
   strcat(httpPayload, data);
 
-  // send response
-  String cipSend = "AT+CIPSEND=";
-  cipSend += strlen(httpPayload);
-  cipSend += "\r\n";
-  WifiClient::atCommand(cipSend, 1000);
+  // CIPSEND
+  int postLength = strlen(httpPayload);
+  strcat(atCommand, "AT+CIPSEND=");
+  strcat(atCommand, postLength);
+  strcat(atCommand, "\r\n");
+  WifiClient::atCommand(atCommand, 1000);
   WifiClient::atCommand(httpPayload, 1000);
   
 //  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);

@@ -3,6 +3,7 @@
 
 //#define MODE_WIFI_SERVER
 #define MODE_WIFI_CLIENT
+#define AT_COMMAND_BUFFER_SIZE 256
 
 #include <Arduino.h>
 #include <SoftwareSerial.h>
