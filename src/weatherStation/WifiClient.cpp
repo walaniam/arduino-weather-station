@@ -60,43 +60,33 @@ void WifiClient::sendPostRequest(char data[]) {
 //  WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
 //  delay(3000);
   
-  char atCommand[AT_COMMAND_BUFFER_SIZE];
-
   // CIPSTART
-  strcat(atCommand, "AT+CIPSTART=\"TCP\",\"");
-  strcat(atCommand, AZ_FUNCTION_HOST);
-  strcat(atCommand, "\",");
-  strcat(atCommand, AZ_FUNCTION_PORT);
-  strcat(atCommand, "\r\n");
-//  WifiClient::atCommand("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n", 5000);
-  WifiClient::atCommand(atCommand, 5000);
+  Serial.println(AZ_CONNECT);
+  WifiClient::atCommand(AZ_CONNECT, 5000);
   delay(1000);
-  memset(atCommand, '\0', AT_COMMAND_BUFFER_SIZE);
+//  memset(atCommand, '\0', AT_COMMAND_BUFFER_SIZE);
   
-
   // Build POST request
   int dataLength = strlen(data);
-  char httpPayload[dataLength + 256];
-  //strcat(httpPayload, "POST /weather/observations/v1 HTTP/1.1\r\nHost: 192.168.0.192:7070\r\nW_STATION_HOST: 192.168.0.137\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
-  strcat(httpPayload, "POST ");
-  strcat(httpPayload, AZ_FUNCTION_URI);
-  strcat(httpPayload, " HTTP/1.1\r\n");
-  // headers
-  strcat(httpPayload, "Host: ");
-  strcat(httpPayload, AZ_FUNCTION_HOST);
-  strcat(httpPayload, ":");
-  strcat(httpPayload, AZ_FUNCTION_PORT);
-  strcat(httpPayload, "\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ");
-  strcat(httpPayload, String(dataLength).c_str());
-  strcat(httpPayload, "\r\n\r\n");
-  strcat(httpPayload, data);
+//  char httpPayload[AT_COMMAND_BUFFER_SIZE + dataLength];
+//  strcat(httpPayload, AZ_RAW_REQUEST);
+//  strcat(httpPayload, String(dataLength).c_str());
+//  strcat(httpPayload, "\r\n\r\n");
+//  strcat(httpPayload, data);
+  String httpPayload = AZ_RAW_REQUEST;
+  httpPayload += dataLength;
+  httpPayload += "\r\n\r\n";
+  httpPayload += data;
+  httpPayload += "\r\n";
+  
 
   // CIPSEND
-  int postLength = strlen(httpPayload);
-  strcat(atCommand, "AT+CIPSEND=");
-  strcat(atCommand, postLength);
-  strcat(atCommand, "\r\n");
-  WifiClient::atCommand(atCommand, 1000);
+  String cipSend = "AT+CIPSEND=";
+  cipSend += httpPayload.length(); // strlen(httpPayload);
+  cipSend += "\r\n";
+  WifiClient::atCommand(cipSend, 1000);
+  // POST body send
+  Serial.println(httpPayload);
   WifiClient::atCommand(httpPayload, 1000);
   
 //  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
@@ -171,7 +161,7 @@ String WifiClient::atCommandWithResponse(String command, const int timeout) {
 
   if (WIFI_DEBUG) {
     Serial.println(F("---BEGIN---"));
-    int count = min(command.length(), 15);
+    int count = min(command.length(), 25);
     Serial.print(command.substring(0, count));
     Serial.println(F("..."));
   }
