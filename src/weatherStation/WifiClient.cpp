@@ -37,6 +37,7 @@ void WifiClient::begin(SoftwareSerial *_esp8266) {
 
   // show assigned ip
   String ipResponse = WifiClient::atCommandWithResponse(F("AT+CIFSR\r\n"), 1500);
+  Serial.println(ipResponse);
   int ipBegin = ipResponse.indexOf('"');
   ipResponse = ipResponse.substring(ipBegin + 1, ipResponse.length());
   int ipEnd = ipResponse.indexOf('"');
@@ -61,9 +62,9 @@ void WifiClient::sendPostRequest(char data[]) {
 //  delay(3000);
   
   // CIPSTART
-  Serial.println(AZ_CONNECT);
-  WifiClient::atCommand(AZ_CONNECT, 5000);
-  delay(1000);
+//  Serial.println(AZ_CONNECT);
+  WifiClient::atCommand(F("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n"), 5000);
+  delay(3000);
 //  memset(atCommand, '\0', AT_COMMAND_BUFFER_SIZE);
   
   // Build POST request
@@ -77,17 +78,18 @@ void WifiClient::sendPostRequest(char data[]) {
   httpPayload += dataLength;
   httpPayload += "\r\n\r\n";
   httpPayload += data;
-  httpPayload += "\r\n";
-  
 
   // CIPSEND
   String cipSend = "AT+CIPSEND=";
   cipSend += httpPayload.length(); // strlen(httpPayload);
   cipSend += "\r\n";
-  WifiClient::atCommand(cipSend, 1000);
+  Serial.println(cipSend);
+  WifiClient::atCommand(cipSend, 3000);
+  delay(1000);
   // POST body send
   Serial.println(httpPayload);
-  WifiClient::atCommand(httpPayload, 1000);
+  WifiClient::atCommand(httpPayload, 3000);
+  delay(1000);
   
 //  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
 //  delay(1000);
@@ -132,7 +134,7 @@ void WifiClient::atCommand(String command, const int timeout) {
 
   if (WIFI_DEBUG) {
     Serial.println(F("---BEGIN---"));
-    int count = min(command.length(), 15);
+    int count = min(command.length(), 25);
     Serial.print(command.substring(0, count));
     Serial.println(F("..."));
   }

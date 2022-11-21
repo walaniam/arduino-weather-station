@@ -1,7 +1,4 @@
 #include "constants.h"
-#ifdef USE_SD
-#include <SD.h>
-#endif
 #include <SoftwareSerial.h>
 #include <Dps310.h>
 #include "Utils.h"
@@ -21,9 +18,6 @@ rgb_lcd lcd;
 Dps310 pressureSensor;
 SoftwareSerial esp8266(WIFI_RX, WIFI_TX);
 WifiClient wifiClient;
-#ifdef USE_SD
-File dataFile;
-#endif
 
 unsigned long lastLoopTime;
 byte buttonState = 0;
@@ -62,31 +56,6 @@ void setup() {
   Serial.println(Utils::freeRam());
 #endif
 
-  // Open file
-#ifdef USE_SD
-  if (!SD.begin(4)) {
-    Serial.println(F("Card initialization failed"));
-    lcd.print(F("No SD card"));
-    while (true);
-  }
-
-#ifdef DEBUG
-  dataFile = SD.open(DATA_FILE, FILE_READ);
-  if (dataFile) {
-    while (dataFile.available()) {
-      Serial.write(dataFile.read());
-    }
-    dataFile.close();
-    Serial.println(F("Done reading file"));
-  } else {
-    Serial.print(F("Cannot open file: "));
-    Serial.println(DATA_FILE);
-  }
-#endif
-
-  dataFile = SD.open(DATA_FILE, FILE_WRITE);
-#endif
-
   // start Dps310
   pressureSensor.begin(Wire);
 
@@ -108,7 +77,6 @@ void setup() {
 
   Serial.println(F("setup done"));
 }
-
 
 void loop() {
 
@@ -226,10 +194,6 @@ TempAndPressure digitalTempAndPressure() {
 
 void logData(char csvData[]) {
   strcpy(csvBuffer, csvData);
-#ifdef USE_SD
-  dataFile.println(csvBuffer);
-  dataFile.flush();
-#endif
 #ifdef MODE_WIFI_CLIENT
   wifiClient.sendPostRequest(csvBuffer);
 #endif
