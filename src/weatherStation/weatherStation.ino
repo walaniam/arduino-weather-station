@@ -25,7 +25,7 @@ char csvBuffer[CSV_BUFFER_SIZE] = "no data";
 
 void setup() {
 
-  Serial.begin(SERIAL_SPEED);
+  Serial.begin(115200);
   while (!Serial);
 
   // Button
@@ -45,10 +45,24 @@ void setup() {
   lcd.setCursor(0, 0);
 
   // WiFi
+  ///////////////////////////////////////////////
   Serial.println(F("Initializing esp8266 serial"));
-  esp8266.begin(SERIAL_SPEED);
+
+  esp8266.begin(115200);
+
+  Serial.println(F("Sending baud rate change..."));
+  esp8266.print(F("AT+UART_DEF="));
+  esp8266.print(9600);
+  esp8266.println(F(",8,1,0,0"));
+  delay(100);
+  // we can't expect a readable answer over SoftwareSerial at 115200
+
+  esp8266.begin(9600);
   while (!esp8266);
+  
   Serial.println(F("Initialized esp8266 serial"));
+  ///////////////////////////////////////////////
+  
   wifiClient.begin(&esp8266);
 
 #ifdef DEBUG
