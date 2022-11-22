@@ -29,11 +29,9 @@ void WifiClient::begin(SoftwareSerial *_esp8266) {
   wifiSignInCommand += "\r\n";
   // sign in to wifi network
   WifiClient::atCommand(wifiSignInCommand, 3000);
-//  delay(3000);
 
   // set client mode
   WifiClient::atCommand(F("AT+CWMODE=1\r\n"), 3000);
-//  delay(1500);
 
   // show assigned ip
   String ipResponse = WifiClient::atCommandWithResponse(F("AT+CIFSR\r\n"), 3000);
@@ -48,55 +46,53 @@ void WifiClient::begin(SoftwareSerial *_esp8266) {
 #ifdef MODE_WIFI_SERVER  
   // set multiple connections
   WifiClient::atCommand(F("AT+CIPMUX=1\r\n"), 3000);
-//  delay(1500);
-  // Start in server mode  
+  // Start in server mode
   WifiClient::atCommand(F("AT+CIPSERVER=1,80\r\n"), 3000);
-//  delay(1500);
 #endif
 }
 
 void WifiClient::sendPostRequest(char data[]) {
 
-//  ping gateway
-  WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
-//  delay(3000);
-  
+  // Ping gateway
+  //WifiClient::atCommand("AT+PING=\"192.168.0.1\"\r\n", 3000);
+
   // CIPSTART
-//  Serial.println(AZ_CONNECT);
-  WifiClient::atCommand(F("AT+CIPSTART=\"TCP\",\"192.168.0.192\",7070\r\n"), 5000);
-//  delay(3000);
-//  memset(atCommand, '\0', AT_COMMAND_BUFFER_SIZE);
-  
+  String connectCommand = "AT+CIPSTART=\"TCP\",";
+  connectCommand += "\"";
+  connectCommand += SRV_HOST;
+  connectCommand += "\"";
+  connectCommand += ",";
+  connectCommand += SRV_PORT;
+  connectCommand += "\r\n";  
+  WifiClient::atCommand(connectCommand, 5000);
+
   // Build POST request
   int dataLength = strlen(data);
-//  char httpPayload[AT_COMMAND_BUFFER_SIZE + dataLength];
-//  strcat(httpPayload, AZ_RAW_REQUEST);
-//  strcat(httpPayload, String(dataLength).c_str());
-//  strcat(httpPayload, "\r\n\r\n");
-//  strcat(httpPayload, data);
-  String httpPayload = AZ_RAW_REQUEST;
+  String httpPayload = "POST ";
+  httpPayload += SRV_URI;
+  httpPayload += " HTTP/1.1\r\nHost: ";
+  httpPayload += SRV_HOST;
+  httpPayload += ":";
+  httpPayload += SRV_PORT;
+  httpPayload += "\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
   httpPayload += dataLength;
   httpPayload += "\r\n\r\n";
   httpPayload += data;
 
+  Serial.println(httpPayload);
+
   // CIPSEND
   String cipSend = "AT+CIPSEND=";
-  cipSend += httpPayload.length(); // strlen(httpPayload);
+  cipSend += httpPayload.length();
   cipSend += "\r\n";
-//  Serial.println(cipSend);
   WifiClient::atCommand(cipSend, 3000);
-//  delay(1000);
   // POST body send
-  Serial.println(httpPayload);
   WifiClient::atCommand(httpPayload, 3000);
-//  delay(1000);
-  
-//  WifiClient::atCommand("AT+CIPSTATUS\r\n", 5000);
-//  delay(1000);
+
+//  WifiClient::atCommand("AT+CIPSTATUS\r\n", 3000);
 
   // close connection
   WifiClient::atCommand(F("AT+CIPCLOSE\r\n"), 3000);
-//  delay(1000);
 }
 
 void WifiClient::handleHttpRequest(char responseBody[]) {
