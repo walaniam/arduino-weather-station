@@ -316,7 +316,7 @@ private:
 
 
 	//static int sendCmd(const char* cmd, int timeout=1000);
-	static int sendCmd(const __FlashStringHelper* cmd, int timeout=1000);
+	static int sendCmd(const __FlashStringHelper* cmd, int timeout=3000);
 	static int sendCmd(const __FlashStringHelper* cmd, int timeout, ...);
 
 	static bool sendCmdGet(const __FlashStringHelper* cmd, const char* startTag, const char* endTag, char* outStr, int outStrLen);

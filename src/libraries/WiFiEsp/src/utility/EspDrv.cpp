@@ -74,7 +74,7 @@ void EspDrv::wifiDriverInit(Stream *espSerial)
 	EspDrv::espSerial = espSerial;
 
 	bool initOK = false;
-	
+
 	for(int i=0; i<5; i++)
 	{
 		if (sendCmd(F("AT")) == TAG_OK)
@@ -1110,7 +1110,7 @@ void EspDrv::espEmptyBuf(bool warn)
 // copied from Serial::timedRead
 int EspDrv::timedRead()
 {
-  int _timeout = 1000;
+  int _timeout = 3000;
   int c;
   long _startMillis = millis();
   do
