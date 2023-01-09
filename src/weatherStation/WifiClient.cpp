@@ -59,22 +59,21 @@ void WifiClient::sendPostRequest(char data[]) {
   // CIPSTART
   String connectCommand = "AT+CIPSTART=\"TCP\",";
   connectCommand += "\"";
-  connectCommand += SRV_HOST;
+  connectCommand += SRV_CONNECT_HOST;
   connectCommand += "\"";
   connectCommand += ",";
-  connectCommand += SRV_PORT;
+  connectCommand += SRV_CONNECT_PORT;
   connectCommand += "\r\n";  
   WifiClient::atCommand(connectCommand, 5000);
+//  delay(3000);
 
   // Build POST request
   int dataLength = strlen(data);
   String httpPayload = "POST ";
   httpPayload += SRV_URI;
   httpPayload += " HTTP/1.1\r\nHost: ";
-  httpPayload += SRV_HOST;
-  httpPayload += ":";
-  httpPayload += SRV_PORT;
-  httpPayload += "\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\nContent-Length: ";
+  httpPayload += SRV_REQ_HOST;
+  httpPayload += "\r\nUser-Agent: curl/7.68.0\r\nAccept: */*\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: ";
   httpPayload += dataLength;
   httpPayload += "\r\n\r\n";
   httpPayload += data;
@@ -88,6 +87,7 @@ void WifiClient::sendPostRequest(char data[]) {
   WifiClient::atCommand(cipSend, 3000);
   // POST body send
   WifiClient::atCommand(httpPayload, 3000);
+//  delay(3000);
 
 //  WifiClient::atCommand("AT+CIPSTATUS\r\n", 3000);
 

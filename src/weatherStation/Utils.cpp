@@ -30,8 +30,8 @@ int Utils::freeRam() {
 
 void Utils::debug(String message) {
   if (WIFI_DEBUG) {
-    int count = min(message.length(), 250);
+    int count = min(message.length(), 360);
     Serial.print(message.substring(0, count));
-    Serial.println(F("..."));
+//    Serial.println(F("..."));
   }
 }
