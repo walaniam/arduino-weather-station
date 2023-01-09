@@ -1,8 +1,9 @@
 #include "constants.h"
+#include "secrets.h"
 #include <SoftwareSerial.h>
 #include <Dps310.h>
 #include "Utils.h"
-#include "WifiClient.h"
+#include <WiFiEsp.h>
 #include "AnalogTemperatureSensor.h"
 #include "DS1307.h"
 #include "rgb_lcd.h"
@@ -16,8 +17,9 @@ AnalogTemperatureSensor analogTemp(ANALOG_TEMPERATURE_PIN);
 DS1307 clock;
 rgb_lcd lcd;
 Dps310 pressureSensor;
-SoftwareSerial esp8266(WIFI_RX, WIFI_TX);
-WifiClient wifiClient;
+SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
+WiFiEspClient client;
+int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
 unsigned long lastLoopTime;
 byte buttonState = 0;
@@ -44,31 +46,34 @@ void setup() {
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
 
-  // WiFi
+  // ESP8266
   ///////////////////////////////////////////////
-  Serial.println(F("Initializing esp8266 serial"));
-
-  esp8266.begin(115200);
-
-  Serial.println(F("Sending baud rate change..."));
-  esp8266.print(F("AT+UART_DEF="));
-  esp8266.print(9600);
-  esp8266.println(F(",8,1,0,0"));
-  delay(100);
-  // we can't expect a readable answer over SoftwareSerial at 115200
-
-  esp8266.begin(9600);
-  while (!esp8266);
-  
+  Serial.println(F("Initializing esp8266, Serial1"));
+  changeBaudRate();
   Serial.println(F("Initialized esp8266 serial"));
   ///////////////////////////////////////////////
-  
-  wifiClient.begin(&esp8266);
 
-#ifdef DEBUG
-  Serial.print(F("SRAM = "));
-  Serial.println(Utils::freeRam());
-#endif
+  // WiFi
+  WiFi.init(&Serial1);
+
+  // check for the presence of the shield
+  if (WiFi.status() == WL_NO_SHIELD) {
+    Serial.println(F("WiFi shield not present"));
+    // don't continue
+    while (true);
+  }
+
+  // attempt to connect to WiFi network
+  while (status != WL_CONNECTED) {
+    Serial.print(F("Attempting to connect to WPA SSID: "));
+    Serial.println(SECRET_SSID);
+    // Connect to WPA/WPA2 network
+    status = WiFi.begin(SECRET_SSID, SECRET_PASS);
+  }
+
+  // you're connected now, so print out the data
+  Serial.println(F("You're connected to the network"));
+  printWifiStatus();
 
   // start Dps310
   pressureSensor.begin(Wire);
@@ -92,11 +97,23 @@ void setup() {
   Serial.println(F("setup done"));
 }
 
-void loop() {
+void changeBaudRate() {
 
-#ifdef MODE_WIFI_SERVER
-  wifiClient.handleHttpRequest(csvBuffer);
-#endif
+  Serial1.begin(115200);
+
+  Serial.println(F("Sending baud rate change..."));
+  Serial1.print(F("AT+UART_DEF="));
+  Serial1.print(9600);
+  Serial1.println(F(",8,1,0,0"));
+  delay(500);
+  // we can't expect a readable answer over SoftwareSerial at 115200
+
+  Serial1.begin(9600);
+  while (!Serial1);
+
+}
+
+void loop() {
 
   unsigned long now = millis();
 
@@ -156,7 +173,8 @@ void loop() {
     lcd.setCursor(0, 0);
     lcd.print(F("IP:"));
     lcd.setCursor(0, 1);
-    lcd.print(wifiClient.myIp);
+    // TODO
+    //    lcd.print(wifiClient.myIp);
   }
 
   char csv[CSV_BUFFER_SIZE];
@@ -167,7 +185,7 @@ void loop() {
   strcat(csv, String(temperature2, 2).c_str());
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(avgPressure_hPa, 2).c_str());
-  
+
   logData(csv);
 }
 
@@ -208,14 +226,85 @@ TempAndPressure digitalTempAndPressure() {
 
 void logData(char csvData[]) {
   strcpy(csvBuffer, csvData);
-#ifdef MODE_WIFI_CLIENT
-  wifiClient.sendPostRequest(csvBuffer);
-#endif
+  sendWeatherReport(csvBuffer);
 }
 
-/**
-   Get formatter date-time.
-*/
+void sendWeatherReport(char data[]) {
+
+  stopWhenDisconnected();
+
+  // if there's a successful connection
+  if (client.connect(SRV_CONNECT_HOST, SRV_CONNECT_PORT)) {
+
+    Serial.println(F("Sending request..."));
+
+    // http method
+    client.print(F("POST "));
+    client.print(SRV_URI);
+    client.println(F(" HTTP/1.1"));
+
+    // headers
+    client.print(F("Host: "));
+    client.println(SRV_REQ_HOST);
+
+    client.println(F("User-Agent: Arduino"));
+    client.println(F("Accept: */*"));
+    client.println(F("Content-Type: application/x-www-form-urlencoded"));
+    client.println(F("Connection: close"));
+
+    int dataLength = strlen(data);
+    String lengthHeader = "Content-Length: ";
+    lengthHeader += dataLength;
+    client.println(lengthHeader);
+
+    // Request payload
+    client.println();
+    client.println(data);
+
+    client.flush();
+
+    Serial.println(F("Request sent"));
+
+    delay(500);
+    // Read if anything available
+    while (client.available()) {
+      char c = client.read();
+      Serial.write(c);
+    }
+    Serial.println();
+
+    stopWhenDisconnected();
+
+  } else {
+    // if you couldn't make a connection
+    Serial.println(F("Connection failed"));
+  }
+}
+
+void stopWhenDisconnected() {
+  if (!client.connected()) {
+    client.stop();
+  }
+}
+
+void printWifiStatus() {
+  // print the SSID of the network you're attached to
+  Serial.print(F("SSID: "));
+  Serial.println(WiFi.SSID());
+
+  // print your WiFi shield's IP address
+  IPAddress ip = WiFi.localIP();
+  Serial.print(F("IP Address: "));
+  Serial.println(ip);
+
+  // print the received signal strength
+  long rssi = WiFi.RSSI();
+  Serial.print(F("Signal strength (RSSI):"));
+  Serial.print(rssi);
+  Serial.println(F(" dBm"));
+}
+
+// Get formatter date-time.
 String getTime() {
   clock.getTime();
   String time = "";
