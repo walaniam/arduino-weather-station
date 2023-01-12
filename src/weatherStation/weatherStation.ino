@@ -21,9 +21,9 @@ SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
 WiFiEspClient client;
 int status = WL_IDLE_STATUS;     // the Wifi radio's status
 
-unsigned long lastLoopTime;
+char csv[CSV_BUFFER_SIZE];
+unsigned long lastLoopTime = 0;
 byte buttonState = 0;
-char csvBuffer[CSV_BUFFER_SIZE] = "no data";
 
 void setup() {
 
@@ -47,11 +47,9 @@ void setup() {
   lcd.setCursor(0, 0);
 
   // ESP8266
-  ///////////////////////////////////////////////
   Serial.println(F("Initializing esp8266, Serial1"));
   changeBaudRate();
   Serial.println(F("Initialized esp8266 serial"));
-  ///////////////////////////////////////////////
 
   // WiFi
   WiFi.init(&Serial1);
@@ -89,7 +87,7 @@ void setup() {
     Serial.println(measureStatus);
   }
 
-#ifdef DEBUG
+#ifdef DEBUG_RAM
   Serial.print(F("SRAM = "));
   Serial.println(Utils::freeRam());
 #endif
@@ -128,13 +126,13 @@ void loop() {
     delay(1000);
   }
 
-  if (now - lastLoopTime < INTERVAL) {
+  if (lastLoopTime != 0 && now - lastLoopTime < INTERVAL) {
     return;
   }
 
+  memset(csv, 0, sizeof(csv));
   lastLoopTime = now;
-
-  String time = getTime();
+  readTime();
 
   // Analog temperature
   float temperature1 = analogTemp.measure();
@@ -144,7 +142,7 @@ void loop() {
   float avgPressure_hPa = tempAndPressure.pressure;
 
   // Serial Message
-  Serial.print(time);
+  printIsoDate();
   Serial.print(F(" : "));
   Serial.print(F("temp1 = "));
   Serial.print(temperature1);
@@ -166,9 +164,8 @@ void loop() {
     lcd.print(String(temperature2, 2));
     // Pressure line
     lcd.setCursor(0, 1);
-    String pressureMessage = "hPa: ";
-    pressureMessage.concat(String(avgPressure_hPa, 2));
-    lcd.print(pressureMessage);
+    lcd.print(F("hPa: "));
+    lcd.print(String(avgPressure_hPa, 2));
   } else if (buttonState == 1) {
     lcd.setCursor(0, 0);
     lcd.print(F("IP:"));
@@ -177,8 +174,6 @@ void loop() {
     //    lcd.print(wifiClient.myIp);
   }
 
-  char csv[CSV_BUFFER_SIZE];
-  strcpy(csv, time.c_str());
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(temperature1, 2).c_str());
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
@@ -186,7 +181,13 @@ void loop() {
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(avgPressure_hPa, 2).c_str());
 
-  logData(csv);
+  sendWeatherReport(csv);
+}
+
+void printIsoDate() {
+  for (uint8_t i = 0; i < 16; i++) {
+    Serial.print(csv[i]);
+  }
 }
 
 /**
@@ -224,14 +225,9 @@ TempAndPressure digitalTempAndPressure() {
   };
 }
 
-void logData(char csvData[]) {
-  strcpy(csvBuffer, csvData);
-  sendWeatherReport(csvBuffer);
-}
-
 void sendWeatherReport(char data[]) {
 
-  stopWhenDisconnected();
+  client.stop();
 
   // if there's a successful connection
   if (client.connect(SRV_CONNECT_HOST, SRV_CONNECT_PORT)) {
@@ -253,8 +249,8 @@ void sendWeatherReport(char data[]) {
     client.println(F("Connection: close"));
 
     int dataLength = strlen(data);
-    String lengthHeader = "Content-Length: ";
-    lengthHeader += dataLength;
+    char lengthHeader[32];
+    sprintf(lengthHeader, "Content-Length: %u", dataLength);
     client.println(lengthHeader);
 
     // Request payload
@@ -265,7 +261,7 @@ void sendWeatherReport(char data[]) {
 
     Serial.println(F("Request sent"));
 
-    delay(500);
+    delay(3000);
     // Read if anything available
     while (client.available()) {
       char c = client.read();
@@ -273,17 +269,11 @@ void sendWeatherReport(char data[]) {
     }
     Serial.println();
 
-    stopWhenDisconnected();
+    client.stop();
 
   } else {
     // if you couldn't make a connection
     Serial.println(F("Connection failed"));
-  }
-}
-
-void stopWhenDisconnected() {
-  if (!client.connected()) {
-    client.stop();
   }
 }
 
@@ -304,16 +294,8 @@ void printWifiStatus() {
   Serial.println(F(" dBm"));
 }
 
-// Get formatter date-time.
-String getTime() {
+void readTime() {
   clock.getTime();
-  String time = "";
-  time.concat(clock.year + 2000);
-  time.concat(Utils::padded(clock.month));
-  time.concat(Utils::padded(clock.dayOfMonth));
-  time.concat(F(" "));
-  time.concat(Utils::padded(clock.hour));
-  time.concat(Utils::padded(clock.minute));
-  time.concat(Utils::padded(clock.second));
-  return time;
+  uint16_t year = clock.year + 2000;
+  sprintf(csv, "%u%02u%02u %02u%02u%02u", year, clock.month, clock.dayOfMonth, clock.hour, clock.minute, clock.second);
 }
