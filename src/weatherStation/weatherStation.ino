@@ -19,26 +19,23 @@ rgb_lcd lcd;
 Dps310 pressureSensor;
 SoftwareSerial Serial1(WIFI_RX, WIFI_TX);
 WiFiEspClient client;
-int status = WL_IDLE_STATUS;     // the Wifi radio's status
+int status = WL_IDLE_STATUS;
 
 char csv[CSV_BUFFER_SIZE];
 unsigned long lastLoopTime = 0;
-byte buttonState = 0;
+unsigned long lastSendTime = 0;
 
 void setup() {
 
   Serial.begin(115200);
   while (!Serial);
 
-  // Button
-  pinMode(BUTTON_PIN, INPUT);
-
   // Clock
   clock.begin();
 #ifdef SET_TIME
-  clock.fillByYMD(2022, 4, 20);
-  clock.fillByHMS(13, 38, 00);
-  clock.fillDayOfWeek(WED);
+  clock.fillByYMD(2023, 4, 21);
+  clock.fillByHMS(20, 13, 00);
+  clock.fillDayOfWeek(FRI);
   clock.setTime();
 #endif
 
@@ -108,30 +105,18 @@ void changeBaudRate() {
 
   Serial1.begin(9600);
   while (!Serial1);
-
 }
 
 void loop() {
 
   unsigned long now = millis();
 
-  if (digitalRead(BUTTON_PIN) == HIGH) {
-    buttonState += 1;
-    if (buttonState > 1) {
-      buttonState = 0;
-    }
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(F("Waiting..."));
-    delay(1000);
-  }
-
-  if (lastLoopTime != 0 && now - lastLoopTime < INTERVAL) {
+  if (lastLoopTime != 0 && now - lastLoopTime < CHECK_INTERVAL) {
     return;
   }
 
-  memset(csv, 0, sizeof(csv));
   lastLoopTime = now;
+  memset(csv, 0, sizeof(csv));
   readTime();
 
   // Analog temperature
@@ -153,26 +138,26 @@ void loop() {
 
   // LCD
   lcd.clear();
-  if (buttonState == 0) {
-    // Temp line
-    lcd.setCursor(0, 0);
-    lcd.print(F("C"));
-    lcd.print((char)223);
-    lcd.print(F(":"));
-    lcd.print(String(temperature1, 2));
-    lcd.print(F(" / "));
-    lcd.print(String(temperature2, 2));
-    // Pressure line
-    lcd.setCursor(0, 1);
-    lcd.print(F("hPa: "));
-    lcd.print(String(avgPressure_hPa, 2));
-  } else if (buttonState == 1) {
-    lcd.setCursor(0, 0);
-    lcd.print(F("IP:"));
-    lcd.setCursor(0, 1);
-    // TODO
-    //    lcd.print(wifiClient.myIp);
+  // Temp line
+  lcd.setCursor(0, 0);
+  lcd.print(F("C"));
+  lcd.print((char)223);
+  lcd.print(F(":"));
+  lcd.print(String(temperature1, 2));
+  lcd.print(F(" / "));
+  lcd.print(String(temperature2, 2));
+  // Pressure line
+  lcd.setCursor(0, 1);
+  lcd.print(F("hPa: "));
+  lcd.print(String(avgPressure_hPa, 2));
+
+
+  // Collect and send weather report
+  if (lastSendTime != 0 && now - lastSendTime < SEND_INTERVAL) {
+    return;
   }
+  
+  lastSendTime = now;
 
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
   strcat(csv, String(temperature1, 2).c_str());
