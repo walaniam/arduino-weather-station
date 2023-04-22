@@ -48,7 +48,7 @@ Image source: https://wiki.seeedstudio.com
 
 # Code
 ## Configuration
-This code expects `src/weatherStation/secrets.h` file with following content.
+This code requires `src/weatherStation/secrets.h` file to be created with following content.
 <pre>
 #define SECRET_SSID "your wifi ssid"
 #define SECRET_PASS "your wifi password"
