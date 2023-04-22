@@ -11,7 +11,7 @@ for Grove extensions.
 Image source: https://store.arduino.cc
 
 ## Display
-Displays outside / inside temperatures and pressure hPa.  
+16x2 LCD. In this project it is used to displays outside / inside temperatures and pressure hPa.  
 [LCD RGB](https://wiki.seeedstudio.com/Grove-LCD_RGB_Backlight/)  
 [Library](https://github.com/Seeed-Studio/Grove_LCD_RGB_Backlight)  
 ![LCD](https://files.seeedstudio.com/wiki/Grove_LCD_RGB_Backlight/images/intro.jpg)  
