@@ -46,6 +46,10 @@ Wireless network. RX on pin 2, TX on pin 3.
 ![wifi](https://media-cdn.seeedstudio.com/media/catalog/product/cache/bb49d3ec4ee05b6f018e93f896b8a25d/h/t/httpsstatics3.seeedstudio.comseeedfile2018-06bazaar832918_img_5263a.jpg)  
 Image source: https://wiki.seeedstudio.com
 
+## End result
+<img src="site/img/all.jpg" width="600"/>
+<img src="site/img/lcd.jpg" width="600"/>
+
 # Code
 ## Configuration
 This code requires `src/weatherStation/secrets.h` file to be created with following content.
@@ -70,7 +74,9 @@ Example
 #define SRV_URI "/api/post-endpoint?code=lfddfnoren34vc"
 </pre>
 
-## Post request body
+## HTTP server implementation
+Server collecting the reports, should expose POST endpoint accepting following request format.
+### Post request body
 Format
 <pre>
 date time UTC,outside temp,inside temp,pressure
