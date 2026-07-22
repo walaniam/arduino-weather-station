@@ -120,7 +120,8 @@ void loop() {
   readTime();
 
   // Analog temperature
-  float temperature1 = analogTemp.measure();
+  float temperature1Raw = analogTemp.measure();
+  float temperature1 = isnan(temperature1Raw) ? -999 : temperature1Raw;
 
   TempAndPressure tempAndPressure = digitalTempAndPressure();
   float temperature2 = tempAndPressure.temp;
