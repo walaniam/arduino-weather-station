@@ -181,8 +181,8 @@ void printIsoDate() {
 */
 TempAndPressure digitalTempAndPressure() {
 
-  uint8_t pressureCount = 20;
-  uint8_t tempCount = 20;
+  static const uint8_t pressureCount = 20;
+  static const uint8_t tempCount = 20;
   float pressure[pressureCount];
   float temperature[tempCount];
   int16_t measureStatus = pressureSensor.getContResults(temperature, tempCount, pressure, pressureCount);
