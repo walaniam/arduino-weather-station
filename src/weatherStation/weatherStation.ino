@@ -120,7 +120,8 @@ void loop() {
   readTime();
 
   // Analog temperature
-  float temperature1 = analogTemp.measure();
+  float temperature1Raw = analogTemp.measure();
+  float temperature1 = isnan(temperature1Raw) ? -999 : temperature1Raw;
 
   TempAndPressure tempAndPressure = digitalTempAndPressure();
   float temperature2 = tempAndPressure.temp;
@@ -137,19 +138,23 @@ void loop() {
   Serial.println(avgPressure_hPa);
 
   // LCD
+  char floatBuf[10];
   lcd.clear();
   // Temp line
   lcd.setCursor(0, 0);
   lcd.print(F("C"));
   lcd.print((char)223);
   lcd.print(F(":"));
-  lcd.print(String(temperature1, 2));
+  dtostrf(temperature1, 1, 2, floatBuf);
+  lcd.print(floatBuf);
   lcd.print(F(" / "));
-  lcd.print(String(temperature2, 2));
+  dtostrf(temperature2, 1, 2, floatBuf);
+  lcd.print(floatBuf);
   // Pressure line
   lcd.setCursor(0, 1);
   lcd.print(F("hPa: "));
-  lcd.print(String(avgPressure_hPa, 2));
+  dtostrf(avgPressure_hPa, 1, 2, floatBuf);
+  lcd.print(floatBuf);
 
 
   // Collect and send weather report
@@ -160,11 +165,14 @@ void loop() {
   lastSendTime = now;
 
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
-  strcat(csv, String(temperature1, 2).c_str());
+  dtostrf(temperature1, 1, 2, floatBuf);
+  strcat(csv, floatBuf);
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
-  strcat(csv, String(temperature2, 2).c_str());
+  dtostrf(temperature2, 1, 2, floatBuf);
+  strcat(csv, floatBuf);
   Utils::appendChar(csv, ',', CSV_BUFFER_SIZE);
-  strcat(csv, String(avgPressure_hPa, 2).c_str());
+  dtostrf(avgPressure_hPa, 1, 2, floatBuf);
+  strcat(csv, floatBuf);
 
   sendWeatherReport(csv);
 }
@@ -180,10 +188,11 @@ void printIsoDate() {
 */
 TempAndPressure digitalTempAndPressure() {
 
-  uint8_t pressureCount = 20;
-  uint8_t tempCount = 20;
-  float pressure[pressureCount];
-  float temperature[tempCount];
+  static const uint8_t MAX_SAMPLES = 20;
+  uint8_t pressureCount = MAX_SAMPLES;
+  uint8_t tempCount = MAX_SAMPLES;
+  float pressure[MAX_SAMPLES];
+  float temperature[MAX_SAMPLES];
   int16_t measureStatus = pressureSensor.getContResults(temperature, tempCount, pressure, pressureCount);
 
   float temp = 0;
